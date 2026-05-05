@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOpenAt, nextStateChange, minutesUntilClose } from './opening-hours'
+import { isOpenAt, nextStateChange, minutesUntilClose, parseOpeningHoursWeek } from './opening-hours'
 
 // Build a UTC-anchored date so test results are deterministic regardless of CI tz.
 function utc(y: number, m: number, d: number, hh: number, mm = 0): Date {
@@ -77,5 +77,43 @@ describe('minutesUntilClose', () => {
 
   it('returns null for 24/7 spec (no upcoming change)', () => {
     expect(minutesUntilClose('24/7', new Date())).toBe(null)
+  })
+})
+
+describe('parseOpeningHoursWeek', () => {
+  // Anchor on Wednesday 2026-05-06 — week should be Mon 2026-05-04 → Sun 2026-05-10.
+  const anchor = utc(2026, 5, 6, 12)
+
+  it('returns null for missing hours', () => {
+    expect(parseOpeningHoursWeek(null, anchor)).toBe(null)
+    expect(parseOpeningHoursWeek('', anchor)).toBe(null)
+  })
+
+  it('returns null for invalid syntax', () => {
+    expect(parseOpeningHoursWeek('garbage', anchor)).toBe(null)
+  })
+
+  it('returns 7 days with Mon-Fri 09-17 intervals and Sat/Sun closed', () => {
+    const wk = parseOpeningHoursWeek('Mo-Fr 09:00-17:00', anchor)
+    expect(wk).not.toBe(null)
+    expect(wk!.length).toBe(7)
+    expect(wk![0]!.dayLabel).toBe('Mon')
+    expect(wk![0]!.intervals).toEqual([{ from: '09:00', to: '17:00' }])
+    expect(wk![4]!.dayLabel).toBe('Fri')
+    expect(wk![4]!.intervals).toEqual([{ from: '09:00', to: '17:00' }])
+    expect(wk![5]!.dayLabel).toBe('Sat')
+    expect(wk![5]!.intervals).toEqual([])
+    expect(wk![6]!.dayLabel).toBe('Sun')
+    expect(wk![6]!.intervals).toEqual([])
+  })
+
+  it('handles split intervals and Saturday-only differences', () => {
+    const wk = parseOpeningHoursWeek('Mo-Fr 09:00-12:00,13:00-17:00; Sa 10:00-14:00', anchor)
+    expect(wk).not.toBe(null)
+    expect(wk![0]!.intervals).toEqual([
+      { from: '09:00', to: '12:00' },
+      { from: '13:00', to: '17:00' },
+    ])
+    expect(wk![5]!.intervals).toEqual([{ from: '10:00', to: '14:00' }])
   })
 })
