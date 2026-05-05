@@ -9,68 +9,91 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SpotIdRouteImport } from './routes/spot.$id'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppSpotIdRouteImport } from './routes/_app.spot.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SpotIdRoute = SpotIdRouteImport.update({
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSpotIdRoute = AppSpotIdRouteImport.update({
   id: '/spot/$id',
   path: '/spot/$id',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/spot/$id': typeof SpotIdRoute
+  '/': typeof AppIndexRoute
+  '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/spot/$id': typeof SpotIdRoute
+  '/': typeof AppIndexRoute
+  '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/spot/$id': typeof SpotIdRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/': typeof AppIndexRoute
+  '/_app/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths: '/' | '/spot/$id'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/spot/$id'
-  id: '__root__' | '/' | '/spot/$id'
+  id: '__root__' | '/_app' | '/_app/' | '/_app/spot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SpotIdRoute: typeof SpotIdRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/spot/$id': {
-      id: '/spot/$id'
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/spot/$id': {
+      id: '/_app/spot/$id'
       path: '/spot/$id'
       fullPath: '/spot/$id'
-      preLoaderRoute: typeof SpotIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppSpotIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppIndexRoute: typeof AppIndexRoute
+  AppSpotIdRoute: typeof AppSpotIdRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppIndexRoute: AppIndexRoute,
+  AppSpotIdRoute: AppSpotIdRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SpotIdRoute: SpotIdRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
