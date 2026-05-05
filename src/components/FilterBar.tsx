@@ -78,16 +78,29 @@ export function FilterBar(props: FilterBarProps): React.ReactElement {
         aria-checked={outdoor}
         aria-label="Show only places with outdoor seating"
         onClick={() => onOutdoorChange(!outdoor)}
-        className={[
-          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors shrink-0',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
-          outdoor
-            ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
-            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50',
-        ].join(' ')}
+        className="inline-flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
       >
-        <Umbrella aria-hidden="true" className="w-4 h-4" />
-        <span>Outdoor</span>
+        <Umbrella
+          aria-hidden="true"
+          className={`w-4 h-4 ${outdoor ? 'text-amber-600' : 'text-slate-500'}`}
+        />
+        <span
+          className={`text-sm font-medium ${outdoor ? 'text-slate-900' : 'text-slate-600'}`}
+        >
+          Outdoor
+        </span>
+        <span
+          aria-hidden="true"
+          className={`relative inline-block w-9 h-5 rounded-full transition-colors ${
+            outdoor ? 'bg-amber-500' : 'bg-slate-300'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 inline-block w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+              outdoor ? 'translate-x-4' : 'translate-x-0'
+            }`}
+          />
+        </span>
       </button>
     </div>
   )
