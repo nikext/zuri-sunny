@@ -1,12 +1,7 @@
 // TanStack Start server functions for POIs / buildings / refresh.
+// All Node-only imports (db, drizzle, init, refresh) are confined to handler
+// bodies so the TanStack Start compiler keeps them out of the client bundle.
 import { createServerFn } from '@tanstack/react-start'
-import { and, eq, gte, lte } from 'drizzle-orm'
-import { db } from './db/client'
-import { pois, buildings } from './db/schema'
-import { refreshAll } from './refresh'
-import { ensureServerStarted } from './init'
-
-ensureServerStarted()
 
 type Bbox = [number, number, number, number]
 
@@ -22,6 +17,11 @@ function parseBbox(input: { bbox: Bbox }): { bbox: Bbox } {
 export const getPoisInBbox = createServerFn({ method: 'GET' })
   .inputValidator(parseBbox)
   .handler(async ({ data }) => {
+    const { ensureServerStarted } = await import('./init')
+    const { db } = await import('./db/client')
+    const { pois } = await import('./db/schema')
+    const { and, gte, lte } = await import('drizzle-orm')
+    ensureServerStarted()
     const [west, south, east, north] = data.bbox
     const rows = await db
       .select()
@@ -36,6 +36,11 @@ export const getPoisInBbox = createServerFn({ method: 'GET' })
 export const getBuildingsInBbox = createServerFn({ method: 'GET' })
   .inputValidator(parseBbox)
   .handler(async ({ data }) => {
+    const { ensureServerStarted } = await import('./init')
+    const { db } = await import('./db/client')
+    const { buildings } = await import('./db/schema')
+    const { and, gte, lte } = await import('drizzle-orm')
+    ensureServerStarted()
     const [west, south, east, north] = data.bbox
     // Overlap = NOT (maxLon < west || minLon > east || maxLat < south || minLat > north)
     const rows = await db
@@ -59,6 +64,11 @@ export const getPoiById = createServerFn({ method: 'GET' })
     return { id: d.id }
   })
   .handler(async ({ data }) => {
+    const { ensureServerStarted } = await import('./init')
+    const { db } = await import('./db/client')
+    const { pois } = await import('./db/schema')
+    const { eq } = await import('drizzle-orm')
+    ensureServerStarted()
     const rows = await db.select().from(pois).where(eq(pois.id, data.id)).limit(1)
     return rows[0] ?? null
   })
@@ -67,5 +77,8 @@ export const getPoiById = createServerFn({ method: 'GET' })
 export const refreshData = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => d ?? {})
   .handler(async () => {
+    const { ensureServerStarted } = await import('./init')
+    const { refreshAll } = await import('./refresh')
+    ensureServerStarted()
     return await refreshAll()
   })
