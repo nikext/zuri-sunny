@@ -70,12 +70,21 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
   const amenityLabel = poi.amenity ?? ''
 
   return (
-    <div
-      role="dialog"
-      aria-label="Place details"
-      className="fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none"
-    >
-      <div className="w-full max-w-md pointer-events-auto rounded-t-2xl bg-white shadow-2xl border border-slate-200 px-4 pt-3 pb-6">
+    <>
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className="fixed inset-0 z-[35] bg-slate-900/20"
+      />
+      <div
+        role="dialog"
+        aria-label="Place details"
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none"
+      >
+      <div className="w-full max-w-md pointer-events-auto rounded-t-2xl bg-white shadow-2xl border border-slate-200 px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <div className="flex justify-center pt-1 pb-2">
+          <div className="w-9 h-1 rounded-full bg-slate-300" aria-hidden="true" />
+        </div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-900 truncate">{displayName(poi)}</h2>
@@ -87,7 +96,7 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-100 active:bg-slate-200"
+            className="shrink-0 rounded-full p-2.5 min-w-11 min-h-11 inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 active:bg-slate-200"
           >
             <X aria-hidden="true" className="w-5 h-5" />
           </button>
@@ -103,7 +112,7 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
 
           {poi.openingHours ? (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-600 break-all">{poi.openingHours}</span>
+              <span className="text-slate-600 break-words">{poi.openingHours}</span>
               <span
                 className={
                   open
@@ -144,5 +153,6 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
         </div>
       </div>
     </div>
+    </>
   )
 }
