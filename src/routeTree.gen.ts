@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AdminRefreshRouteImport } from './routes/admin.refresh'
 import { Route as AppSpotIdRouteImport } from './routes/_app.spot.$id'
 
 const AppRoute = AppRouteImport.update({
@@ -22,6 +23,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminRefreshRoute = AdminRefreshRouteImport.update({
+  id: '/admin/refresh',
+  path: '/admin/refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppSpotIdRoute = AppSpotIdRouteImport.update({
   id: '/spot/$id',
   path: '/spot/$id',
@@ -30,28 +36,32 @@ const AppSpotIdRoute = AppSpotIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/admin/refresh': typeof AdminRefreshRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesByTo {
+  '/admin/refresh': typeof AdminRefreshRoute
   '/': typeof AppIndexRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/admin/refresh': typeof AdminRefreshRoute
   '/_app/': typeof AppIndexRoute
   '/_app/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/spot/$id'
+  fullPaths: '/' | '/admin/refresh' | '/spot/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/spot/$id'
-  id: '__root__' | '/_app' | '/_app/' | '/_app/spot/$id'
+  to: '/admin/refresh' | '/' | '/spot/$id'
+  id: '__root__' | '/_app' | '/admin/refresh' | '/_app/' | '/_app/spot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  AdminRefreshRoute: typeof AdminRefreshRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -69,6 +79,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/admin/refresh': {
+      id: '/admin/refresh'
+      path: '/admin/refresh'
+      fullPath: '/admin/refresh'
+      preLoaderRoute: typeof AdminRefreshRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/spot/$id': {
       id: '/_app/spot/$id'
@@ -94,6 +111,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  AdminRefreshRoute: AdminRefreshRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
