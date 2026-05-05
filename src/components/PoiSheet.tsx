@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { X, MapPin, ExternalLink } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import type { Poi } from '#/lib/types'
-import { isOpenAt } from '#/lib/opening-hours'
+import { isOpenAt, minutesUntilClose } from '#/lib/opening-hours'
 
 export type PoiSheetProps = {
   poi: Poi | null
@@ -57,6 +57,7 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
 
   const address = buildAddress(poi.tags)
   const open = isOpenAt(poi.openingHours, t)
+  const closingIn = open ? minutesUntilClose(poi.openingHours, t) : null
   const sun = sunStatus(timeline ?? null, t)
   // Prefer name-based search so Google resolves to the actual venue card rather
   // than dropping a generic pin at the lat/lon. Include address (or city) to
@@ -122,6 +123,11 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
               >
                 {open ? 'Open now' : 'Closed now'}
               </span>
+              {closingIn !== null && closingIn < 60 ? (
+                <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium">
+                  {closingIn === 0 ? 'Closing soon' : `Closing in ${closingIn} min`}
+                </span>
+              ) : null}
             </div>
           ) : null}
 
