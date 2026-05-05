@@ -83,17 +83,3 @@ export const refreshData = createServerFn({ method: 'POST' })
     return await refreshAll()
   })
 
-/** Returns POI / building counts and the most recent refresh timestamp (ms epoch). */
-export const getDataStats = createServerFn({ method: 'GET' })
-  .handler(async () => {
-    const { ensureServerStarted } = await import('./init')
-    const { db } = await import('./db/client')
-    const { pois, buildings, cacheMeta } = await import('./db/schema')
-    const { sql } = await import('drizzle-orm')
-    ensureServerStarted()
-    const poiCount = db.select({ c: sql<number>`count(*)` }).from(pois).get()?.c ?? 0
-    const buildingCount = db.select({ c: sql<number>`count(*)` }).from(buildings).get()?.c ?? 0
-    const meta = await db.select().from(cacheMeta).all()
-    const lastRefresh = meta.length > 0 ? Math.max(...meta.map((m) => m.refreshedAt)) : null
-    return { poiCount, buildingCount, lastRefresh }
-  })

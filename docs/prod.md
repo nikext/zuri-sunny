@@ -115,6 +115,38 @@ Leave them **blank** in Railway when using a `Dockerfile`. The Dockerfile's `RUN
 
 Each `createServerFn` handler does `ensureServerStarted()` first. The function checks flags so subsequent calls are near-instant.
 
+## Data refresh & recovery
+
+The server pulls POIs + buildings from Overpass three ways, in order of priority:
+
+1. **Cold seed** (`seedIfEmpty`) — first request after a fresh deploy with an empty DB. Runs once per process lifetime if the DB is empty.
+2. **Startup refresh** — on the first request after deploy, if existing data is older than 6 hours (`STALE_AGE_MS` in `init.ts`), `refreshAll()` fires in the background. Server responds immediately with old data; subsequent requests get fresh data once the refresh resolves (~30–60s later).
+3. **Periodic refresh** — `startRefreshLoop` registers a 7-day `setInterval` on first request, so a long-running container keeps drifting data fresh.
+
+The startup-refresh threshold catches the most common drift scenario: you broaden the Overpass query in `src/server/overpass.ts`, redeploy, and old POIs need to be replaced with the new (broader) set. Without that step the periodic loop wouldn't refresh for up to 7 days.
+
+### Manual recovery (if auto-refresh fails or you need it now)
+
+If auto-refresh isn't running for some reason — Overpass is down at deploy time, the staleness check needs to be bypassed, you broadened the query and don't want to wait — there are three escape hatches, in order of preference.
+
+**Force a refresh on the next request: mark data as stale.**
+```bash
+railway link        # if not already linked
+railway run --service <name> sqlite3 /data/zurich.db "UPDATE cache_meta SET refreshed_at = 0;"
+```
+Next request after this triggers `maybeRefreshIfStale()` (since `Date.now() - 0 > STALE_AGE_MS`). No restart needed; just hit any page.
+
+**Full re-seed: drop the data and let `seedIfEmpty` run again.**
+```bash
+railway run --service <name> sqlite3 /data/zurich.db "DELETE FROM pois; DELETE FROM buildings; DELETE FROM cache_meta;"
+railway redeploy    # or restart the service so the next cold start re-seeds
+```
+Slower (cold start blocks on the first Overpass call) but bulletproof.
+
+**Re-add a temporary admin route on a feature branch** if SSH access isn't available. The previous `src/routes/admin.refresh.tsx` (deleted in commit history — `git log --diff-filter=D --summary` to find it) was a button-driven page calling `refreshAll`. Cherry-pick + push, hit the route, then revert. Don't leave it on `main` without auth.
+
+The auto-refresh logic is in `src/server/init.ts → maybeRefreshIfStale`. If that function ever silently fails, the startup logs (`[init] startup refresh failed: …`) are the place to look — Railway log tail.
+
 ## Observability snippets
 
 ### Trace every outbound fetch
