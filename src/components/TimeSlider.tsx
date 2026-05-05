@@ -110,7 +110,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
           <button
             type="button"
             onClick={openDatePicker}
-            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 active:bg-slate-100 whitespace-nowrap tabular-nums"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 active:bg-slate-100 whitespace-nowrap tabular-nums"
             aria-label="Change date"
           >
             <Calendar aria-hidden="true" className="w-3.5 h-3.5" />
@@ -130,7 +130,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
           <button
             type="button"
             onClick={handleNow}
-            className="rounded-md bg-slate-900 px-2 py-1 text-xs sm:text-sm font-medium text-white hover:bg-slate-800 active:bg-slate-700 whitespace-nowrap"
+            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 active:bg-slate-700 whitespace-nowrap"
             aria-label="Reset to current time"
           >
             Now
@@ -145,7 +145,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
         value={currentMs}
         onChange={handleRangeChange}
         aria-label="Time of day"
-        className="w-full h-2 appearance-none rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400 accent-amber-500 cursor-pointer"
+        className="range-thumb-lg w-full h-2 appearance-none rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400 accent-amber-500 cursor-pointer"
       />
       <div className="flex items-center justify-between text-[10px] sm:text-xs text-slate-500 mt-1 tabular-nums">
         <span>{formatTime(new Date(minMs))}</span>
