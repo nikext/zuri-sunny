@@ -2,12 +2,27 @@ import type { NewPoi, NewBuilding } from './db/schema'
 
 export const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 
+// POI query rationale:
+//   Branch A — Explicit `outdoor_seating=yes` for the full set of food/drink amenities.
+//               This is the high-precision core: anyone who tagged it has a terrace.
+//   Branch B — Explicit `terrace=yes` (older / alternative tag still in use in CH).
+//   Branch C — Likely-outdoor amenities where `outdoor_seating` is unset entirely
+//               (`[!outdoor_seating]`). Restricted to `cafe|bar|pub|biergarten` —
+//               categories where a sidewalk/terrace setup is the norm in Zürich.
+//               Restaurants are deliberately excluded here to avoid pulling in
+//               every indoor-only Beiz; they only enter via Branch A or B.
+//   Branch D — Anything tagged `leisure=garden` or `leisure=beer_garden` that's
+//               also a food/drink amenity and not explicitly `outdoor_seating=no`
+//               (covers e.g. restaurants with a Gartenwirtschaft that haven't set
+//               `outdoor_seating=yes`).
 export const POIS_QUERY = `
 [out:json][timeout:60];
 area["name"="Zürich"]["admin_level"="8"]->.zh;
 (
   nwr["amenity"~"^(cafe|bar|restaurant|biergarten|pub|ice_cream)$"]["outdoor_seating"="yes"](area.zh);
-  nwr["amenity"~"^(cafe|bar|restaurant|biergarten|pub)$"]["outdoor_seating"!="no"]["leisure"="garden"](area.zh);
+  nwr["amenity"~"^(cafe|bar|restaurant|biergarten|pub|ice_cream)$"]["terrace"="yes"](area.zh);
+  nwr["amenity"~"^(cafe|bar|pub|biergarten)$"][!"outdoor_seating"][!"terrace"](area.zh);
+  nwr["amenity"~"^(cafe|bar|restaurant|biergarten|pub|ice_cream)$"]["outdoor_seating"!="no"]["leisure"~"^(garden|beer_garden)$"](area.zh);
 );
 out center tags;
 `
