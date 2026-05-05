@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "start": "node .output/server/index.mjs"
+    "start": "node --max-http-header-size=65536 .output/server/index.mjs"
   },
   "dependencies": {
     "@deck.gl/layers": "^9.3.2",
