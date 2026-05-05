@@ -1,0 +1,75 @@
+import { useRef } from 'react'
+import { Coffee, LayoutGrid, Sun, Utensils, Wine } from 'lucide-react'
+import type { Category } from '#/lib/types'
+
+export type FilterBarProps = {
+  value: Category
+  onChange: (cat: Category) => void
+}
+
+type ChipDef = {
+  cat: Category
+  label: string
+  Icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+}
+
+const CHIPS: ChipDef[] = [
+  { cat: 'all', label: 'All', Icon: LayoutGrid },
+  { cat: 'breakfast', label: 'Breakfast', Icon: Sun },
+  { cat: 'coffee', label: 'Coffee', Icon: Coffee },
+  { cat: 'lunch', label: 'Lunch', Icon: Utensils },
+  { cat: 'apero', label: 'Apéro', Icon: Wine },
+]
+
+export function FilterBar(props: FilterBarProps): React.ReactElement {
+  const { value, onChange } = props
+  const buttonsRef = useRef<Array<HTMLButtonElement | null>>([])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const dir = e.key === 'ArrowRight' ? 1 : -1
+    const nextIndex = (index + dir + CHIPS.length) % CHIPS.length
+    const nextBtn = buttonsRef.current[nextIndex]
+    nextBtn?.focus()
+    const nextChip = CHIPS[nextIndex]
+    if (nextChip) onChange(nextChip.cat)
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Category filter"
+      className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 py-1"
+    >
+      {CHIPS.map((chip, i) => {
+        const active = chip.cat === value
+        const Icon = chip.Icon
+        return (
+          <button
+            key={chip.cat}
+            ref={(el) => {
+              buttonsRef.current[i] = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(chip.cat)}
+            onKeyDown={(e) => handleKeyDown(e, i)}
+            className={[
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
+              active
+                ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
+                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
+            ].join(' ')}
+          >
+            <Icon aria-hidden="true" className="w-4 h-4" />
+            <span>{chip.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
