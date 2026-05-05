@@ -18,6 +18,8 @@ export const Route = createFileRoute('/_app/')({
 
 function Home() {
   const navigate = useNavigate({ from: Route.fullPath })
+  const search = Route.useSearch()
+  const outdoor = search.outdoor ?? false
   const { filteredPois, buildings, selectedId, setSelectedId, t, setT, cat } = useMapData()
 
   // Sync `t` to URL with a small debounce so dragging doesn't spam history.
@@ -61,11 +63,28 @@ function Home() {
     [navigate, setSelectedId],
   )
 
+  const handleOutdoorChange = useCallback(
+    (next: boolean) => {
+      setSelectedId(null)
+      navigate({
+        to: '.',
+        search: (prev) => ({ ...prev, outdoor: next ? true : undefined }),
+        replace: true,
+      })
+    },
+    [navigate, setSelectedId],
+  )
+
   return (
     <>
       <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:pt-[calc(env(safe-area-inset-top)+0.75rem)] pointer-events-none">
         <div className="pointer-events-auto">
-          <FilterBar value={cat} onChange={handleCategoryChange} />
+          <FilterBar
+            value={cat}
+            onChange={handleCategoryChange}
+            outdoor={outdoor}
+            onOutdoorChange={handleOutdoorChange}
+          />
         </div>
       </div>
 

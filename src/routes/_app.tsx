@@ -13,6 +13,7 @@ import type { Building, Category, Poi } from '#/lib/types'
 type AppSearch = {
   t?: string
   cat?: Category
+  outdoor?: boolean
 }
 
 const CATEGORIES: ReadonlyArray<Category> = ['breakfast', 'coffee', 'lunch', 'apero', 'all']
@@ -25,10 +26,16 @@ export const Route = createFileRoute('/_app')({
     if (typeof raw.cat === 'string' && (CATEGORIES as ReadonlyArray<string>).includes(raw.cat)) {
       out.cat = raw.cat as Category
     }
+    if (raw.outdoor === true || raw.outdoor === 'true') out.outdoor = true
     return out
   },
   component: AppLayout,
 })
+
+function hasOutdoorSeating(poi: Poi): boolean {
+  const tags = poi.tags
+  return tags?.outdoor_seating === 'yes' || tags?.terrace === 'yes'
+}
 
 function parseT(s: string | undefined): Date {
   if (!s) return new Date()
@@ -55,6 +62,7 @@ function AppLayout() {
 
   const [t, setT] = useState<Date>(() => parseT(search.t))
   const cat: Category = search.cat ?? 'all'
+  const outdoor: boolean = search.outdoor ?? false
 
   const [pois, setPois] = useState<Poi[]>([])
   const [buildings, setBuildings] = useState<Building[]>([])
@@ -81,7 +89,11 @@ function AppLayout() {
     }
   }, [bbox])
 
-  const filteredPois = useMemo(() => pois.filter((p) => categoryMatches(p, cat)), [pois, cat])
+  const filteredPois = useMemo(() => {
+    let result = pois.filter((p) => categoryMatches(p, cat))
+    if (outdoor) result = result.filter(hasOutdoorSeating)
+    return result
+  }, [pois, cat, outdoor])
 
   const { sunny } = useSunStatus({ pois: filteredPois, buildings, t })
 

@@ -1,6 +1,6 @@
 // Bottom-sheet overlay summarizing a POI's address, hours, and current sun state.
 import type { ReactElement } from 'react'
-import { X, MapPin, ExternalLink } from 'lucide-react'
+import { X, MapPin, ExternalLink, Umbrella } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import type { Poi } from '#/lib/types'
 import { isOpenAt, minutesUntilClose } from '#/lib/opening-hours'
@@ -59,6 +59,7 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
   const open = isOpenAt(poi.openingHours, t)
   const closingIn = open ? minutesUntilClose(poi.openingHours, t) : null
   const sun = sunStatus(timeline ?? null, t)
+  const hasOutdoor = poi.tags?.outdoor_seating === 'yes' || poi.tags?.terrace === 'yes'
   // Prefer name-based search so Google resolves to the actual venue card rather
   // than dropping a generic pin at the lat/lon. Include address (or city) to
   // disambiguate common names like "Coffee" or "Brasserie".
@@ -108,6 +109,13 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
             <p className="flex items-start gap-1.5">
               <MapPin aria-hidden="true" className="w-4 h-4 mt-0.5 text-slate-500 shrink-0" />
               <span>{address}</span>
+            </p>
+          ) : null}
+
+          {hasOutdoor ? (
+            <p className="flex items-center gap-1.5">
+              <Umbrella aria-hidden="true" className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Outdoor seating</span>
             </p>
           ) : null}
 
