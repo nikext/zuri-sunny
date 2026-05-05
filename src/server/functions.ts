@@ -4,6 +4,9 @@ import { and, eq, gte, lte } from 'drizzle-orm'
 import { db } from './db/client'
 import { pois, buildings } from './db/schema'
 import { refreshAll } from './refresh'
+import { ensureServerStarted } from './init'
+
+ensureServerStarted()
 
 type Bbox = [number, number, number, number]
 

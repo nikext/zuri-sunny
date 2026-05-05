@@ -1,205 +1,70 @@
-Welcome to your new TanStack Start app! 
+# Zürich Sunny Spots
 
-# Getting Started
+A web app that shows which Zürich cafés, bars, and restaurants with outdoor seating are currently in the sun — or will be at a chosen time. POIs and building footprints come from OpenStreetMap; sun position from SunCalc; shadow occlusion is raycast in a Web Worker on the client.
 
-To run this application:
+Built with TanStack Start (Vite + Nitro), Drizzle + better-sqlite3, MapLibre GL + deck.gl. Deploys to Railway as a single Node process with a persistent SQLite volume.
+
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-# Building For Production
+Open http://localhost:3000. On the very first request, the server will:
 
-To build this application for production:
+1. Apply Drizzle migrations to `./data/zurich.db`.
+2. Fetch all Zürich POIs and building footprints from the public Overpass API (~30–60s, blocking on the seed not the first response — the page renders immediately, data appears once seed completes).
 
-```bash
-npm run build
-```
-
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+To clear the local DB and force a re-seed:
 
 ```bash
-npm run test
+rm -f data/zurich.db data/zurich.db-shm data/zurich.db-wal
 ```
 
-## Styling
+## Tests
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+```bash
+npm test
+```
 
-### Removing Tailwind CSS
+Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites — 35 tests across 6 files.
 
-If you prefer not to use Tailwind CSS:
+## Architecture
 
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `npm install @tailwindcss/vite tailwindcss -D`
-
+- **Server (TanStack Start + Nitro):** server functions in `src/server/functions.ts` for `getPoisInBbox`, `getBuildingsInBbox`, `getPoiById`, `refreshData`. SQLite lives at `process.env.DB_PATH ?? ./data/zurich.db`. Seed and weekly refresh loop bootstrap on first server-function call (`src/server/init.ts`).
+- **Client:** the home route fetches viewport-bounded POIs + buildings, hands them to a Web Worker (`src/workers/shadow-worker.ts`) along with the current time. The worker raycasts each POI toward the sun bearing through an rbush index of building footprints and reports back a `{ id → sunny? }` map. Marker colors update in real time as the user drags the slider.
+- **URL state:** `?t=<ISO>` and `?cat=<category>` round-trip through TanStack Router search params for shareable links.
 
 ## Deploy to Railway
 
-This project ships with `nixpacks.toml` so Railway detects the build automatically:
+1. Push this repo to GitHub.
+2. https://railway.com/new → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `npm ci && npm run build`.
+3. **Provision a volume** for the SQLite database:
+   - In the service, click **Settings → Volumes → New volume**.
+   - Mount path: `/data`. Pick any size; <100MB is sufficient (current data is ~50MB).
+4. **Set environment variables** under the Variables tab:
+   - `DB_PATH=/data/zurich.db`
+5. Deploy. The first cold start runs migrations and seeds the DB from Overpass (logs print `[init] seeded N pois, M buildings` when complete).
 
-1. Push this repo to GitHub
-2. Visit https://railway.com/new and create a project from your repo
-3. In the **Variables** tab, add the entries from `.env.example` with their production values
-4. Railway runs `vite build` and serves from `dist/client`
+The default `railway.json` requests 1 replica with `ON_FAILURE` restart policy and a `/` healthcheck.
 
-Need a database? Click **+ New** in your project to provision Postgres, MySQL, or Redis directly into the same environment — the connection string is auto-injected as `DATABASE_URL`.
+## Project layout
 
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
+```
+src/
+  routes/          file-based TanStack Router routes
+  components/      SunMap, TimeSlider, FilterBar, PoiSheet, SunTimeline
+  lib/             geo / sun / shadows / opening-hours / timeline / use-sun-status
+  server/          functions, overpass, refresh, init, db (drizzle schema + client)
+  workers/         shadow-worker (module worker)
+drizzle/migrations/ generated SQL migrations
+data/              local SQLite (gitignored)
 ```
 
-Then anywhere in your JSX you can use it like so:
+## Tech notes
 
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- The `opening_hours` library wraps OSM-style opening hours strings; we treat `null` / unparseable as "open".
+- `better-sqlite3` ships prebuilds for Node 22 on Linux x64; `nixpacks.toml` includes `python3` + `gcc` as a fallback for source builds.
+- MapLibre's CJS named exports break Vite SSR — the map component imports `maplibregl` as default and uses a `mounted` gate so the map only initializes client-side.
+- Overpass blocks Node's default user agent — `src/server/overpass.ts` sends an explicit `User-Agent`.

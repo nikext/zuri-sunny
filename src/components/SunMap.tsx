@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import maplibregl, { Map as MapLibreMap } from 'maplibre-gl'
+import maplibregl from 'maplibre-gl'
+import type { Map as MapLibreMap, IControl } from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { PolygonLayer, ScatterplotLayer } from '@deck.gl/layers'
 import type { Building, Poi } from '#/lib/types'
@@ -110,7 +111,7 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     overlayRef.current = overlay
 
     // MapboxOverlay implements the maplibre IControl interface.
-    map.addControl(overlay as unknown as maplibregl.IControl)
+    map.addControl(overlay as unknown as IControl)
 
     const handleMoveEnd = () => {
       const b = map.getBounds()
@@ -121,7 +122,7 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     return () => {
       map.off('moveend', handleMoveEnd)
       try {
-        map.removeControl(overlay as unknown as maplibregl.IControl)
+        map.removeControl(overlay as unknown as IControl)
       } catch {
         // map may already be torn down
       }

@@ -1,8 +1,13 @@
 [phases.setup]
-nixPkgs = ["nodejs_22"]
+# better-sqlite3 ships prebuilds for Node 22 on Linux x64; python3/gcc are a
+# safety net if a prebuild is missing for this Node minor.
+nixPkgs = ["nodejs_22", "python3", "gcc"]
+
+[phases.install]
+cmds = ["npm ci --include=dev"]
 
 [phases.build]
-cmds = ["npm install", "npm run build"]
+cmds = ["npm run build"]
 
 [start]
 cmd = "npm run start"

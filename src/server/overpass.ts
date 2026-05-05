@@ -37,11 +37,18 @@ type OverpassResponse = {
 }
 
 // POST the query as application/x-www-form-urlencoded with `data=<query>`.
+// Overpass rejects Node's default user agent — send an explicit one.
+const USER_AGENT = 'zuri-sunny/0.1 (https://github.com/Nikola/zuri-sunny)'
+
 async function postQuery(query: string, fetcher: typeof fetch): Promise<OverpassResponse> {
   const body = new URLSearchParams({ data: query })
   const res = await fetcher(OVERPASS_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
+      Accept: 'application/json',
+    },
     body,
   })
   if (!res.ok) {
