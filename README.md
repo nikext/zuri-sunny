@@ -65,6 +65,9 @@ data/              local SQLite (gitignored)
 ## Tech notes
 
 - The `opening_hours` library wraps OSM-style opening hours strings; we treat `null` / unparseable as "open".
-- `better-sqlite3` ships prebuilds for Node 22 on Linux x64; `nixpacks.toml` includes `python3` + `gcc` as a fallback for source builds.
+- `better-sqlite3` ships prebuilds for Node 22/24 on Linux x64; `python3` + `build-essential` are included in the Dockerfile as a fallback for source builds.
 - MapLibre's CJS named exports break Vite SSR — the map component imports `maplibregl` as default and uses a `mounted` gate so the map only initializes client-side.
 - Overpass blocks Node's default user agent — `src/server/overpass.ts` sends an explicit `User-Agent`.
+- `nitro-nightly` is pinned (not `@latest`) — recent 4.x nightlies broke the SSR self-fetch pattern. See `docs/prod.md`.
+
+For the full deployment journey — what broke on Railway, why, and how it was fixed — see [`docs/prod.md`](./docs/prod.md).
