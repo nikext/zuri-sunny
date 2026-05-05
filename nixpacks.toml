@@ -1,13 +1,19 @@
+# Railway / Nixpacks build config.
+# - Node 24: TanStack Start packages require >=22.12, but Railway's nodejs_22
+#   resolves to 22.11 in their nixpkgs snapshot. Node 24 is available and
+#   satisfies every package.
+# - pnpm: matches local development; pnpm-lock.yaml is the source of truth.
+# - python3 + gcc: fallback for better-sqlite3 if a prebuilt binary is missing
+#   for this Node minor.
+
 [phases.setup]
-# better-sqlite3 ships prebuilds for Node 22 on Linux x64; python3/gcc are a
-# safety net if a prebuild is missing for this Node minor.
-nixPkgs = ["nodejs_22", "python3", "gcc"]
+nixPkgs = ["nodejs_24", "python3", "gcc", "pnpm"]
 
 [phases.install]
-cmds = ["npm ci --include=dev"]
+cmds = ["pnpm install --frozen-lockfile"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["pnpm run build"]
 
 [start]
-cmd = "npm run start"
+cmd = "pnpm run start"

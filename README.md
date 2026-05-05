@@ -7,8 +7,8 @@ Built with TanStack Start (Vite + Nitro), Drizzle + better-sqlite3, MapLibre GL 
 ## Local development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Open http://localhost:3000. On the very first request, the server will:
@@ -25,7 +25,7 @@ rm -f data/zurich.db data/zurich.db-shm data/zurich.db-wal
 ## Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites — 35 tests across 6 files.
@@ -39,7 +39,7 @@ Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites 
 ## Deploy to Railway
 
 1. Push this repo to GitHub.
-2. https://railway.com/new → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `npm ci && npm run build`.
+2. https://railway.com/new → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `pnpm install --frozen-lockfile && pnpm run build` on Node 24.
 3. **Provision a volume** for the SQLite database:
    - In the service, click **Settings → Volumes → New volume**.
    - Mount path: `/data`. Pick any size; <100MB is sufficient (current data is ~50MB).

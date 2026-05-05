@@ -17,3 +17,5 @@ data/
 *.db-shm
 *.db-wal
 .claude/
+package-lock.json
+phase1.md
