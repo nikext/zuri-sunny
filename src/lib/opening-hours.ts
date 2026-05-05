@@ -32,3 +32,20 @@ export function nextStateChange(oh: string | null | undefined, t: Date): Date | 
     return null
   }
 }
+
+/**
+ * If a place is open at `t` and will close within the next 12 hours, returns
+ * minutes until close. Returns null if closed at `t`, missing/unparseable
+ * hours, 24/7 (no upcoming change), or the next change is >12h away.
+ */
+export function minutesUntilClose(
+  oh: string | null | undefined,
+  t: Date,
+): number | null {
+  if (!isOpenAt(oh, t)) return null
+  const next = nextStateChange(oh, t)
+  if (!next) return null
+  const diffMs = next.getTime() - t.getTime()
+  if (diffMs > 12 * 60 * 60 * 1000) return null
+  return Math.max(0, Math.round(diffMs / 60_000))
+}

@@ -16,6 +16,9 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  test: {
+    env: { TZ: 'UTC' },
+  },
 })
 
 export default config

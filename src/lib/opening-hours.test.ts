@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOpenAt, nextStateChange } from './opening-hours'
+import { isOpenAt, nextStateChange, minutesUntilClose } from './opening-hours'
 
 // Build a UTC-anchored date so test results are deterministic regardless of CI tz.
 function utc(y: number, m: number, d: number, hh: number, mm = 0): Date {
@@ -53,5 +53,29 @@ describe('nextStateChange', () => {
 
   it('returns null for invalid syntax', () => {
     expect(nextStateChange('garbage syntax', new Date())).toBe(null)
+  })
+})
+
+describe('minutesUntilClose', () => {
+  it('returns null for null/undefined/empty hours', () => {
+    expect(minutesUntilClose(null, new Date())).toBe(null)
+    expect(minutesUntilClose(undefined, new Date())).toBe(null)
+    expect(minutesUntilClose('', new Date())).toBe(null)
+  })
+
+  it('returns null when closed at t', () => {
+    expect(minutesUntilClose('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 20))).toBe(null)
+  })
+
+  it('returns minutes until close when open and closing within window', () => {
+    expect(minutesUntilClose('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 16, 30))).toBe(30)
+  })
+
+  it('returns null for invalid syntax', () => {
+    expect(minutesUntilClose('garbage', new Date())).toBe(null)
+  })
+
+  it('returns null for 24/7 spec (no upcoming change)', () => {
+    expect(minutesUntilClose('24/7', new Date())).toBe(null)
   })
 })
