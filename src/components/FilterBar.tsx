@@ -78,7 +78,7 @@ export function FilterBar(props: FilterBarProps): React.ReactElement {
         aria-checked={outdoor}
         aria-label="Show only places with outdoor seating"
         onClick={() => onOutdoorChange(!outdoor)}
-        className="inline-flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
       >
         <Umbrella
           aria-hidden="true"
