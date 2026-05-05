@@ -104,7 +104,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5 text-slate-800 font-medium text-sm tabular-nums whitespace-nowrap">
           <Clock aria-hidden="true" className="w-4 h-4 text-slate-500" />
-          <span aria-label="Selected time">{formatTime(value)}</span>
+          <span aria-label="Selected time" suppressHydrationWarning>{formatTime(value)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -114,7 +114,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
             aria-label="Change date"
           >
             <Calendar aria-hidden="true" className="w-3.5 h-3.5" />
-            <span>{formatDateInput(value)}</span>
+            <span suppressHydrationWarning>{formatDateInput(value)}</span>
           </button>
           <input
             ref={dateInputRef}
@@ -148,8 +148,8 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
         className="range-thumb-lg w-full h-2 appearance-none rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400 accent-amber-500 cursor-pointer"
       />
       <div className="flex items-center justify-between text-[10px] sm:text-xs text-slate-500 mt-1 tabular-nums">
-        <span>{formatTime(new Date(minMs))}</span>
-        <span>{formatTime(new Date(maxMs))}</span>
+        <span suppressHydrationWarning>{formatTime(new Date(minMs))}</span>
+        <span suppressHydrationWarning>{formatTime(new Date(maxMs))}</span>
       </div>
     </div>
   )

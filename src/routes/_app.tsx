@@ -26,15 +26,30 @@ export const Route = createFileRoute('/_app')({
     if (typeof raw.cat === 'string' && (CATEGORIES as ReadonlyArray<string>).includes(raw.cat)) {
       out.cat = raw.cat as Category
     }
-    if (raw.outdoor === true || raw.outdoor === 'true') out.outdoor = true
+    // Accept whatever shape the parser hands us — boolean, string, number — so
+    // the filter survives any quirks in URL search-param serialization between
+    // dev/prod or across TanStack Router upgrades.
+    const v = raw.outdoor
+    if (v === true || v === 'true' || v === 1 || v === '1') out.outdoor = true
     return out
   },
   component: AppLayout,
 })
 
 function hasOutdoorSeating(poi: Poi): boolean {
-  const tags = poi.tags
-  return tags?.outdoor_seating === 'yes' || tags?.terrace === 'yes'
+  // Defensive: tags is declared as Record<string, string> | null | undefined
+  // but if it ever round-trips as a JSON string (some serializer quirks have
+  // been reported in mixed-mode Nitro builds) we still want a correct answer.
+  let tags: Record<string, string> | null | undefined = poi.tags
+  if (typeof tags === 'string') {
+    try {
+      tags = JSON.parse(tags) as Record<string, string>
+    } catch {
+      return false
+    }
+  }
+  if (!tags || typeof tags !== 'object') return false
+  return tags.outdoor_seating === 'yes' || tags.terrace === 'yes'
 }
 
 function parseT(s: string | undefined): Date {

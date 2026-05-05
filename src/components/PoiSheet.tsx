@@ -28,6 +28,21 @@ function displayName(poi: Poi): string {
   return `Unnamed ${amenity}`
 }
 
+function hasOutdoorSeating(tags: Record<string, string> | null | undefined | string): boolean {
+  let parsed: Record<string, string> | null | undefined = null
+  if (typeof tags === 'string') {
+    try {
+      parsed = JSON.parse(tags) as Record<string, string>
+    } catch {
+      return false
+    }
+  } else {
+    parsed = tags
+  }
+  if (!parsed || typeof parsed !== 'object') return false
+  return parsed.outdoor_seating === 'yes' || parsed.terrace === 'yes'
+}
+
 function buildAddress(tags: Record<string, string> | null | undefined): string {
   if (!tags) return ''
   const street = tags['addr:street'] ?? ''
@@ -59,7 +74,7 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
   const open = isOpenAt(poi.openingHours, t)
   const closingIn = open ? minutesUntilClose(poi.openingHours, t) : null
   const sun = sunStatus(timeline ?? null, t)
-  const hasOutdoor = poi.tags?.outdoor_seating === 'yes' || poi.tags?.terrace === 'yes'
+  const hasOutdoor = hasOutdoorSeating(poi.tags)
   // Prefer name-based search so Google resolves to the actual venue card rather
   // than dropping a generic pin at the lat/lon. Include address (or city) to
   // disambiguate common names like "Coffee" or "Brasserie".
