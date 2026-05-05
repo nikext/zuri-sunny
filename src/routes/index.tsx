@@ -148,7 +148,7 @@ function Home() {
 
   return (
     <div className="fixed inset-0 flex flex-col">
-      <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-3 pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:pt-[calc(env(safe-area-inset-top)+0.75rem)] pointer-events-none">
         <div className="pointer-events-auto">
           <FilterBar value={cat} onChange={handleCategoryChange} />
         </div>
@@ -166,7 +166,7 @@ function Home() {
         />
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 z-20 p-2 sm:p-3 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 z-20 p-2 sm:p-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pointer-events-none">
         {selectedPoi ? null : (
           <div className="pointer-events-auto max-w-md mx-auto">
             <TimeSlider value={t} center={ZURICH} onChange={setT} onDayChange={setT} />
