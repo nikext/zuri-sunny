@@ -2,10 +2,10 @@
 import type { ReactElement } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
-import { getPoiById } from '#/server/functions'
+import { getPoiById, getBuildingsInBbox } from '#/server/functions'
 import { isOpenAt } from '#/lib/opening-hours'
 import { SunTimeline } from '#/components/SunTimeline'
-import type { Category } from '#/lib/types'
+import type { Building, Category } from '#/lib/types'
 
 type SpotSearch = {
   t?: string
@@ -25,7 +25,17 @@ export const Route = createFileRoute('/spot/$id')({
   },
   loader: async ({ params }) => {
     const poi = await getPoiById({ data: { id: params.id } })
-    return { poi }
+    if (!poi) return { poi: null, buildings: [] as Building[] }
+    const dLat = 0.005
+    const dLon = 0.008
+    const bbox: [number, number, number, number] = [
+      poi.lon - dLon,
+      poi.lat - dLat,
+      poi.lon + dLon,
+      poi.lat + dLat,
+    ]
+    const buildings = await getBuildingsInBbox({ data: { bbox } })
+    return { poi, buildings: buildings as unknown as Building[] }
   },
   component: SpotDetail,
 })
