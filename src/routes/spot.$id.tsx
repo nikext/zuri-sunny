@@ -97,7 +97,7 @@ function SpotDetail(): ReactElement {
 
       {poi.openingHours ? (
         <div className="mt-3 flex items-center gap-2 flex-wrap text-sm">
-          <span className="text-slate-600 break-all">{poi.openingHours}</span>
+          <span className="text-slate-600 break-words">{poi.openingHours}</span>
           <span
             className={
               open
