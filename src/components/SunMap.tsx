@@ -27,6 +27,7 @@ function buildLayers(
   buildings: Building[],
   sunny: Record<string, boolean>,
   openNow: Record<string, boolean>,
+  selectedId: string | null | undefined,
   onSelect: (id: string) => void,
 ) {
   return [
@@ -43,24 +44,35 @@ function buildLayers(
       id: 'pois',
       data: pois,
       getPosition: (p: Poi) => [p.lon, p.lat],
-      getRadius: 60,
-      radiusMinPixels: 6,
-      radiusMaxPixels: 12,
+      getRadius: (p: Poi) => (p.id === selectedId ? 90 : 60),
+      radiusMinPixels: 8,
+      radiusMaxPixels: 16,
       pickable: true,
+      stroked: true,
+      // Always draw on top of the extruded buildings — without this, dots near
+      // tall footprints get occluded by the 3D geometry at low camera angles.
+      parameters: { depthCompare: 'always' },
       getFillColor: (p: Poi) =>
         sunny[p.id]
           ? openNow[p.id] === false
-            ? [200, 160, 40, 180]
+            ? [230, 180, 40, 200]
             : [255, 200, 40, 255]
           : openNow[p.id] === false
-            ? [120, 120, 120, 140]
-            : [160, 160, 160, 220],
+            ? [80, 90, 110, 140]
+            : [80, 90, 110, 230],
+      getLineColor: [255, 255, 255, 240],
+      getLineWidth: (p: Poi) => (p.id === selectedId ? 3 : 1.75),
+      lineWidthUnits: 'pixels',
+      lineWidthMinPixels: 1.5,
+      lineWidthMaxPixels: 3,
       onClick: (info) => {
         const obj = info.object as Poi | undefined
         if (obj) onSelect(obj.id)
       },
       updateTriggers: {
         getFillColor: [sunny, openNow],
+        getRadius: [selectedId],
+        getLineWidth: [selectedId],
       },
     }),
   ]
@@ -104,6 +116,30 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     })
     mapRef.current = map
 
+    // Hide road and POI labels so dots aren't visually crowded by competing text.
+    // Keep place labels (neighborhoods, city names) for orientation.
+    const handleStyleLoad = () => {
+      try {
+        const style = map.getStyle()
+        const layers = style?.layers ?? []
+        for (const layer of layers) {
+          if (layer.type !== 'symbol') continue
+          const id = layer.id
+          // Match positron's road-name + POI symbol layers; keep `place_*`/place layers.
+          if (id.startsWith('transportation_name') || id.startsWith('poi')) {
+            try {
+              map.setLayoutProperty(id, 'visibility', 'none')
+            } catch {
+              // ignore individual layer failures (style ids may shift over time)
+            }
+          }
+        }
+      } catch {
+        // style not ready or shape changed; safe to no-op
+      }
+    }
+    map.on('load', handleStyleLoad)
+
     const overlay = new MapboxOverlay({
       interleaved: false,
       layers: [],
@@ -121,6 +157,7 @@ export function SunMap(props: SunMapProps): React.ReactElement {
 
     return () => {
       map.off('moveend', handleMoveEnd)
+      map.off('load', handleStyleLoad)
       try {
         map.removeControl(overlay as unknown as IControl)
       } catch {
@@ -137,7 +174,9 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     const overlay = overlayRef.current
     if (!overlay) return
     overlay.setProps({
-      layers: buildLayers(pois, buildings, sunny, openNow, (id) => onSelectRef.current(id)),
+      layers: buildLayers(pois, buildings, sunny, openNow, selectedId, (id) =>
+        onSelectRef.current(id),
+      ),
     })
     // selectedId is included so a future highlight layer rebuilds; no visual diff yet.
   }, [pois, buildings, sunny, openNow, selectedId])

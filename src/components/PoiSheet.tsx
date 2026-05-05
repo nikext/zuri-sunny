@@ -58,7 +58,15 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
   const address = buildAddress(poi.tags)
   const open = isOpenAt(poi.openingHours, t)
   const sun = sunStatus(timeline ?? null, t)
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${poi.lat},${poi.lon}`
+  // Prefer name-based search so Google resolves to the actual venue card rather
+  // than dropping a generic pin at the lat/lon. Include address (or city) to
+  // disambiguate common names like "Coffee" or "Brasserie".
+  const name = poi.name?.trim()
+  const mapsUrl = name
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        [name, address || 'Zürich'].join(', '),
+      )}`
+    : `https://www.google.com/maps/search/?api=1&query=${poi.lat},${poi.lon}`
   const amenityLabel = poi.amenity ?? ''
 
   return (
