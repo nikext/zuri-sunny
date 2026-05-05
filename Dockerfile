@@ -23,6 +23,10 @@ RUN pnpm run build
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Bump max HTTP header size (default 16KB). Railway's edge appends many
+# proxy/security headers; any internal self-fetch through the proxy can
+# exceed undici's default cap and surface as UND_ERR_HEADERS_OVERFLOW.
+ENV NODE_OPTIONS="--max-http-header-size=65536"
 EXPOSE 3000
 
 CMD ["pnpm", "run", "start"]
