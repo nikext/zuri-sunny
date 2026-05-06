@@ -11,7 +11,13 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [
     devtools(),
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    nitro({
+      rollupConfig: { external: [/^@sentry\//] },
+      // Pre-compress public/prerendered assets at build time. Dynamic
+      // server-function responses are NOT covered here — they're left for the
+      // edge proxy or a follow-up runtime middleware.
+      compressPublicAssets: { gzip: true, brotli: true },
+    }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

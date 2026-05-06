@@ -6,7 +6,9 @@ export type LatLon = { lat: number; lon: number }
 export type BuildingFootprint = [number, number][] // [lon, lat] pairs, OSM order
 
 export type Building = {
-  id: string
+  // Server-side row id; the bulk bbox endpoint omits it from the wire payload
+  // since no client/worker code reads it. DB rows still carry it as the PK.
+  id?: string
   footprint: BuildingFootprint
   heightM: number
   minLat: number

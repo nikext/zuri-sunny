@@ -2,8 +2,16 @@
 // All Node-only imports (db, drizzle, init, refresh) are confined to handler
 // bodies so the TanStack Start compiler keeps them out of the client bundle.
 import { createServerFn } from '@tanstack/react-start'
+import { setResponseHeader } from '@tanstack/react-start/server'
+import { slimBuilding, slimPoi, type BuildingRow, type PoiRow } from './projections'
 
 type Bbox = [number, number, number, number]
+
+// Browser-cache the bbox responses for an hour, then serve stale for up to a
+// day while the client revalidates in the background. The underlying dataset
+// refreshes weekly, so this is well within the freshness budget and turns
+// reload + back-nav into 0-egress requests.
+const BBOX_CACHE_CONTROL = 'public, max-age=3600, stale-while-revalidate=86400'
 
 function parseBbox(input: { bbox: Bbox }): { bbox: Bbox } {
   const b = input?.bbox
@@ -29,7 +37,8 @@ export const getPoisInBbox = createServerFn({ method: 'GET' })
       .where(
         and(gte(pois.lon, west), lte(pois.lon, east), gte(pois.lat, south), lte(pois.lat, north)),
       )
-    return rows
+    setResponseHeader('cache-control', BBOX_CACHE_CONTROL)
+    return (rows as PoiRow[]).map(slimPoi)
   })
 
 /** Buildings whose bbox overlaps the requested bbox. */
@@ -54,7 +63,8 @@ export const getBuildingsInBbox = createServerFn({ method: 'GET' })
           lte(buildings.minLat, north),
         ),
       )
-    return rows
+    setResponseHeader('cache-control', BBOX_CACHE_CONTROL)
+    return (rows as BuildingRow[]).map(slimBuilding)
   })
 
 /** Single POI by id, or null. */
@@ -82,4 +92,3 @@ export const refreshData = createServerFn({ method: 'POST' })
     ensureServerStarted()
     return await refreshAll()
   })
-
