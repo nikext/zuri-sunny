@@ -25,7 +25,7 @@ const LABELS: Record<Sky['state'], string> = {
 const LEGEND: Record<Sky['state'], string> = {
   clear: 'full sun expected',
   partly: 'mix of sun and clouds',
-  overcast: 'sunny dots dimmed',
+  overcast: 'no sun reaches the ground — all markers grey, scores hidden',
   night: 'after sunset',
 }
 

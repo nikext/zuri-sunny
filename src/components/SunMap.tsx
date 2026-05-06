@@ -47,14 +47,10 @@ function buildLayers(
   visibleLabelIds: Set<string>,
 ) {
   const overcast = sky?.state === 'overcast'
-  // 0.7 multiplier on the gold RGB channels — preserves alpha so closed/open
-  // distinction (alpha 200 vs 255) is unchanged.
-  const goldOpen: [number, number, number, number] = overcast
-    ? [Math.round(255 * 0.7), Math.round(200 * 0.7), Math.round(40 * 0.7), 255]
-    : [255, 200, 40, 255]
-  const goldClosed: [number, number, number, number] = overcast
-    ? [Math.round(230 * 0.7), Math.round(180 * 0.7), Math.round(40 * 0.7), 200]
-    : [230, 180, 40, 200]
+  const goldOpen: [number, number, number, number] = [255, 200, 40, 255]
+  const goldClosed: [number, number, number, number] = [230, 180, 40, 200]
+  const shadedOpen: [number, number, number, number] = [80, 90, 110, 230]
+  const shadedClosed: [number, number, number, number] = [80, 90, 110, 140]
 
   return [
     new PolygonLayer<Building>({
@@ -78,14 +74,14 @@ function buildLayers(
       // Always draw on top of the extruded buildings — without this, dots near
       // tall footprints get occluded by the 3D geometry at low camera angles.
       parameters: { depthCompare: 'always' },
-      getFillColor: (p: Poi) =>
-        sunny[p.id]
-          ? openNow[p.id] === false
-            ? goldClosed
-            : goldOpen
-          : openNow[p.id] === false
-            ? [80, 90, 110, 140]
-            : [80, 90, 110, 230],
+      getFillColor: (p: Poi) => {
+        // Under overcast, no marker should look "in the sun" — direct
+        // radiation is too low for any geometrically-sunny spot to actually
+        // catch any. Render every POI as shaded.
+        const isSunny = sunny[p.id] && !overcast
+        if (isSunny) return openNow[p.id] === false ? goldClosed : goldOpen
+        return openNow[p.id] === false ? shadedClosed : shadedOpen
+      },
       getLineColor: [255, 255, 255, 240],
       getLineWidth: (p: Poi) => (p.id === selectedId ? 3 : 1.75),
       lineWidthUnits: 'pixels',
@@ -104,7 +100,9 @@ function buildLayers(
     new TextLayer<Poi>({
       id: 'poi-ratings',
       data: pois,
-      visible: zoom >= RATING_HARD_HIDE_ZOOM,
+      // Hide ratings under overcast — when nobody's actually getting sun, a
+      // bright "85" on a marker reads as misleading rather than informative.
+      visible: zoom >= RATING_HARD_HIDE_ZOOM && !overcast,
       getPosition: (p: Poi) => [p.lon, p.lat],
       getText: (p: Poi) => {
         if (!visibleLabelIds.has(p.id)) return ''
