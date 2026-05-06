@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   Building,
   Poi,
@@ -10,25 +10,36 @@ export type UseSunStatusInput = {
   pois: Poi[]
   buildings: Building[]
   t: Date
-  /** When false, the hook is dormant: no init, no compute, sunny stays `{}`.
-   *  Use to gate on "buildings actually loaded" — without this, the first render
-   *  computes against an empty index and marks every POI sunny during daytime. */
+  /** When false, the hook is dormant: no init, no compute, no rating dispatch. */
   enabled?: boolean
   /** Debounce window for compute messages, default 50ms. */
   debounceMs?: number
 }
 
 export type UseSunStatusResult = {
-  /** Map of POI id -> sunny? Empty object before the first result returns. */
   sunny: Record<string, boolean>
-  /** True before the worker has emitted its first 'ready' or 'result'. */
+  /** POI id -> 0..99 daily exposure rating. Empty until the worker emits the
+   *  first 'rating' message for the current day + POI set. */
+  rating: Record<string, number>
   loading: boolean
+}
+
+/** Returns 'YYYY-MM-DD' in Europe/Zurich. Used as the dependency key for
+ *  re-dispatching score-daily so scrubbing within a day is free. */
+function zhDayKey(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Zurich',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
 }
 
 export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
   const { pois, buildings, t, enabled = true, debounceMs = 50 } = input
 
   const [sunny, setSunny] = useState<Record<string, boolean>>({})
+  const [rating, setRating] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState<boolean>(true)
 
   const workerRef = useRef<Worker | null>(null)
@@ -41,7 +52,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
   const pendingComputeRef = useRef<{ pois: Poi[]; t: Date } | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Lazy create the worker on mount; SSR-safe via useEffect.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const worker = new Worker(
@@ -49,7 +59,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
       { type: 'module' },
     )
     workerRef.current = worker
-    // Reset markers so the buildings effect re-inits this fresh worker.
     lastBuildingsRef.current = null
     lastBuildingsLenRef.current = -1
     seqRef.current = 0
@@ -62,7 +71,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
       const msg = e.data
       if (msg.type === 'ready') {
         initInFlightRef.current = false
-        // Flush any compute queued while init was in flight.
         const pending = pendingComputeRef.current
         pendingComputeRef.current = null
         if (pending) sendCompute(pending.pois, pending.t)
@@ -70,14 +78,17 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
         return
       }
       if (msg.type === 'result') {
-        // Worker is FIFO — results arrive in dispatch order. Tag each result with
-        // the next-in-line seq; only apply if it matches the latest dispatched.
         resultsReceivedRef.current += 1
         const resultSeq = resultsReceivedRef.current
         if (resultSeq === latestDispatchedSeqRef.current) {
           setSunny(msg.sunny)
         }
         setLoading(false)
+        return
+      }
+      if (msg.type === 'rating') {
+        // Merge so partial dispatches (different POI subsets) compose.
+        setRating((prev) => ({ ...prev, ...msg.rating }))
         return
       }
     }
@@ -96,7 +107,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Helper: post a compute, tagging dispatch seq for stale-drop logic.
   const sendCompute = (poisArg: Poi[], tArg: Date) => {
     const w = workerRef.current
     if (!w) return
@@ -110,7 +120,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     w.postMessage(msg)
   }
 
-  // Detect buildings change — by reference or length — and (re)init.
   useEffect(() => {
     if (!enabled) return
     const w = workerRef.current
@@ -123,11 +132,12 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     lastBuildingsLenRef.current = buildings.length
     initInFlightRef.current = true
     setLoading(true)
+    // Clear stale ratings — the new building set changes the geometry.
+    setRating({})
     const initMsg: WorkerInbound = { type: 'init', buildings }
     w.postMessage(initMsg)
   }, [buildings, enabled])
 
-  // Schedule debounced compute when pois ref/length or t changes.
   useEffect(() => {
     if (!enabled) return
     const w = workerRef.current
@@ -136,7 +146,6 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null
       if (initInFlightRef.current) {
-        // Queue the latest compute; will fire on 'ready'.
         pendingComputeRef.current = { pois, t }
         return
       }
@@ -151,5 +160,23 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pois, pois.length, t, debounceMs, enabled])
 
-  return { sunny, loading }
+  // Re-dispatch score-daily only when the calendar day (in Zürich) or the POI
+  // set changes — scrubbing within a day reuses the worker's per-day cache.
+  const dayKey = useMemo(() => zhDayKey(t), [t])
+  useEffect(() => {
+    if (!enabled) return
+    const w = workerRef.current
+    if (!w) return
+    if (initInFlightRef.current) return
+    if (pois.length === 0) return
+    const msg: WorkerInbound = {
+      type: 'score-daily',
+      pois,
+      day: t.toISOString(),
+    }
+    w.postMessage(msg)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pois, pois.length, dayKey, enabled, lastBuildingsLenRef.current])
+
+  return { sunny, rating, loading }
 }
