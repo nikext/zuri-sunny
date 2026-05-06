@@ -10,6 +10,10 @@ export type UseSunStatusInput = {
   pois: Poi[]
   buildings: Building[]
   t: Date
+  /** When false, the hook is dormant: no init, no compute, sunny stays `{}`.
+   *  Use to gate on "buildings actually loaded" — without this, the first render
+   *  computes against an empty index and marks every POI sunny during daytime. */
+  enabled?: boolean
   /** Debounce window for compute messages, default 50ms. */
   debounceMs?: number
 }
@@ -22,7 +26,7 @@ export type UseSunStatusResult = {
 }
 
 export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
-  const { pois, buildings, t, debounceMs = 50 } = input
+  const { pois, buildings, t, enabled = true, debounceMs = 50 } = input
 
   const [sunny, setSunny] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState<boolean>(true)
@@ -108,6 +112,7 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
 
   // Detect buildings change — by reference or length — and (re)init.
   useEffect(() => {
+    if (!enabled) return
     const w = workerRef.current
     if (!w) return
     const changed =
@@ -120,10 +125,11 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     setLoading(true)
     const initMsg: WorkerInbound = { type: 'init', buildings }
     w.postMessage(initMsg)
-  }, [buildings])
+  }, [buildings, enabled])
 
   // Schedule debounced compute when pois ref/length or t changes.
   useEffect(() => {
+    if (!enabled) return
     const w = workerRef.current
     if (!w) return
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
@@ -143,7 +149,7 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pois, pois.length, t, debounceMs])
+  }, [pois, pois.length, t, debounceMs, enabled])
 
   return { sunny, loading }
 }

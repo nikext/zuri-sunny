@@ -90,6 +90,10 @@ function AppLayout() {
 
   const [pois, setPois] = useState<Poi[]>(initialPois)
   const [buildings, setBuildings] = useState<Building[]>([])
+  // Distinguishes "buildings haven't loaded yet" (initial state) from "buildings
+  // loaded, none in this bbox" (legitimately all-sunny). Without this gate, the
+  // first compute runs against an empty index and paints every POI as sunny.
+  const [buildingsLoaded, setBuildingsLoaded] = useState<boolean>(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [bbox, setBbox] = useState<[number, number, number, number]>(DEFAULT_BBOX)
 
@@ -122,7 +126,10 @@ function AppLayout() {
     let cancelled = false
     getBuildingsInBbox({ data: { bbox } })
       .then((rows) => {
-        if (!cancelled) setBuildings(rows as unknown as Building[])
+        if (!cancelled) {
+          setBuildings(rows as unknown as Building[])
+          setBuildingsLoaded(true)
+        }
       })
       .catch((err) => {
         if (!cancelled) console.error('buildings fetch failed', err)
@@ -138,7 +145,12 @@ function AppLayout() {
     return result
   }, [pois, cat, outdoor])
 
-  const { sunny } = useSunStatus({ pois: filteredPois, buildings, t })
+  const { sunny } = useSunStatus({
+    pois: filteredPois,
+    buildings,
+    t,
+    enabled: buildingsLoaded,
+  })
 
   const openNow = useMemo<Record<string, boolean>>(() => {
     const out: Record<string, boolean> = {}
@@ -159,6 +171,7 @@ function AppLayout() {
     () => ({
       pois,
       buildings,
+      buildingsLoaded,
       filteredPois,
       sunny,
       openNow,
@@ -168,7 +181,7 @@ function AppLayout() {
       setT,
       cat,
     }),
-    [pois, buildings, filteredPois, sunny, openNow, selectedId, t, cat],
+    [pois, buildings, buildingsLoaded, filteredPois, sunny, openNow, selectedId, t, cat],
   )
 
   return (

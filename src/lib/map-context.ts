@@ -5,6 +5,10 @@ export type MapData = {
   /** All POIs in the current bbox (NOT filtered by category). */
   pois: Poi[]
   buildings: Building[]
+  /** False until the first buildings fetch resolves. Consumers that compute
+   *  sun/shade should treat `false` as "not yet ready" rather than "no buildings
+   *  here" — otherwise an empty index makes every POI look sunny during the day. */
+  buildingsLoaded: boolean
   /** POIs after applying the active category filter. */
   filteredPois: Poi[]
   sunny: Record<string, boolean>

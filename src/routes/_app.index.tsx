@@ -20,7 +20,8 @@ function Home() {
   const navigate = useNavigate({ from: Route.fullPath })
   const search = Route.useSearch()
   const outdoor = search.outdoor ?? false
-  const { filteredPois, buildings, selectedId, setSelectedId, t, setT, cat } = useMapData()
+  const { filteredPois, buildings, buildingsLoaded, selectedId, setSelectedId, t, setT, cat } =
+    useMapData()
 
   // Sync `t` to URL with a small debounce so dragging doesn't spam history.
   const tWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -48,8 +49,10 @@ function Home() {
 
   const selectedTimeline = useMemo(() => {
     if (!selectedPoi) return null
+    // Until buildings load, an empty index would falsely report sun all day.
+    if (!buildingsLoaded) return null
     return dailyTimeline(selectedPoi, spatialIndex, buildings, t)
-  }, [selectedPoi, spatialIndex, buildings, t])
+  }, [selectedPoi, spatialIndex, buildings, buildingsLoaded, t])
 
   const handleCategoryChange = useCallback(
     (next: Category) => {
