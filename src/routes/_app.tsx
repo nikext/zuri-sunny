@@ -1,7 +1,7 @@
 // Pathless layout that keeps the SunMap + viewport data mounted across
 // child routes (`/` and `/spot/$id`). State lifted here so back-navigation
 // from the detail page is instant.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { SunMap } from '#/components/SunMap'
 import { useSunStatus } from '#/lib/use-sun-status'
@@ -32,6 +32,14 @@ export const Route = createFileRoute('/_app')({
     const v = raw.outdoor
     if (v === true || v === 'true' || v === 1 || v === '1') out.outdoor = true
     return out
+  },
+  // Server-side fetch of POIs for the default Zürich bbox so markers ship with
+  // the SSR HTML and paint on hydration. Buildings are intentionally excluded
+  // — they're heavier and only gate the sun/shade calculation, which can
+  // arrive a beat later without delaying the visible map.
+  loader: async () => {
+    const rows = await getPoisInBbox({ data: { bbox: DEFAULT_BBOX } })
+    return { initialPois: rows as unknown as Poi[] }
   },
   component: AppLayout,
 })
@@ -74,30 +82,50 @@ function categoryMatches(poi: Poi, cat: Category): boolean {
 
 function AppLayout() {
   const search = Route.useSearch()
+  const { initialPois } = Route.useLoaderData()
 
   const [t, setT] = useState<Date>(() => parseT(search.t))
   const cat: Category = search.cat ?? 'all'
   const outdoor: boolean = search.outdoor ?? false
 
-  const [pois, setPois] = useState<Poi[]>([])
+  const [pois, setPois] = useState<Poi[]>(initialPois)
   const [buildings, setBuildings] = useState<Building[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [bbox, setBbox] = useState<[number, number, number, number]>(DEFAULT_BBOX)
 
-  // Fetch viewport data when bbox changes.
+  // The loader already seeded POIs for the initial bbox; skip the redundant
+  // first client-side fetch. Subsequent bbox changes (pan/zoom) refetch.
+  const skipNextPoiFetch = useRef(true)
+
   useEffect(() => {
+    if (skipNextPoiFetch.current) {
+      skipNextPoiFetch.current = false
+      return
+    }
     let cancelled = false
-    Promise.all([
-      getPoisInBbox({ data: { bbox } }),
-      getBuildingsInBbox({ data: { bbox } }),
-    ])
-      .then(([poiRows, buildingRows]) => {
-        if (cancelled) return
-        setPois(poiRows as unknown as Poi[])
-        setBuildings(buildingRows as unknown as Building[])
+    getPoisInBbox({ data: { bbox } })
+      .then((rows) => {
+        if (!cancelled) setPois(rows as unknown as Poi[])
       })
       .catch((err) => {
-        if (!cancelled) console.error('viewport fetch failed', err)
+        if (!cancelled) console.error('pois fetch failed', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bbox])
+
+  // Buildings load independently so they don't gate POI render. Markers paint
+  // immediately from the loader; sun/shade colors light up once buildings
+  // arrive and the worker computes.
+  useEffect(() => {
+    let cancelled = false
+    getBuildingsInBbox({ data: { bbox } })
+      .then((rows) => {
+        if (!cancelled) setBuildings(rows as unknown as Building[])
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('buildings fetch failed', err)
       })
     return () => {
       cancelled = true
