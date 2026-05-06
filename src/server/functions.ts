@@ -83,6 +83,19 @@ export const getPoiById = createServerFn({ method: 'GET' })
     return rows[0] ?? null
   })
 
+/** Current sky state for Zürich at the supplied ISO time. Returns null when
+ *  the upstream fetch fails or the time is outside the forecast horizon. */
+export const getSkyAt = createServerFn({ method: 'GET' })
+  .inputValidator((d: { at: string }) => {
+    if (!d || typeof d.at !== 'string' || d.at.length === 0) throw new Error('Invalid at')
+    return { at: d.at }
+  })
+  .handler(async ({ data }) => {
+    const { fetchSky } = await import('./weather')
+    setResponseHeader('cache-control', 'public, max-age=300, stale-while-revalidate=1800')
+    return await fetchSky({ at: data.at })
+  })
+
 /** Triggers a full data refresh from Overpass. v1: no auth. */
 export const refreshData = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => d ?? {})
