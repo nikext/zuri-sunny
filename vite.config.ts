@@ -13,10 +13,11 @@ const config = defineConfig({
     devtools(),
     nitro({
       rollupConfig: { external: [/^@sentry\//] },
-      // Pre-compress public/prerendered assets at build time. Dynamic
-      // server-function responses are NOT covered here — they're left for the
-      // edge proxy or a follow-up runtime middleware.
+      // Pre-compress public/prerendered static assets at build time.
       compressPublicAssets: { gzip: true, brotli: true },
+      // Runtime gzip/brotli for dynamic responses (SSR HTML, server-function
+      // JSON). Railway's edge does not compress these.
+      plugins: ['./src/server/plugins/compression.ts'],
     }),
     tailwindcss(),
     tanstackStart(),
