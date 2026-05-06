@@ -73,7 +73,7 @@ export function SkyChip(props: SkyChipProps): ReactElement | null {
         <div
           role="dialog"
           aria-label="Sky details"
-          className="absolute right-0 mt-1 w-56 rounded-lg bg-white border border-slate-200 shadow-lg p-3 text-xs text-slate-700 z-10"
+          className="absolute left-0 mt-1 w-56 rounded-lg bg-white border border-slate-200 shadow-lg p-3 text-xs text-slate-700 z-10"
         >
           <dl className="grid grid-cols-2 gap-y-1">
             <dt className="text-slate-500">Cloud cover</dt>

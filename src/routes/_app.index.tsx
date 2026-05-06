@@ -98,7 +98,7 @@ function Home() {
         </div>
       </div>
 
-      <div className="absolute top-14 right-3 z-20 pointer-events-none sm:top-16">
+      <div className="absolute top-14 left-2 z-20 pointer-events-none sm:top-16 sm:left-3">
         <div className="pointer-events-auto">
           <SkyChip sky={sky} sunrise={chipSunrise} sunset={chipSunset} />
         </div>
