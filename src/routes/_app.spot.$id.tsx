@@ -298,11 +298,8 @@ function SpotDetail(): ReactElement {
           <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
             Sun timeline
           </h2>
-          <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="mt-3 sm:mt-4 px-1 pt-3 sm:pt-4">
             <SunTimeline segments={timeline} marker={t} />
-            <p className="mt-2 text-xs text-slate-500">
-              Yellow = sun, gray = shade. Red line marks the selected time.
-            </p>
           </div>
         </section>
 

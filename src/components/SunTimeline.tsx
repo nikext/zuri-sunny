@@ -1,4 +1,6 @@
-// SVG day-strip showing sun/shade segments for a POI with optional time marker.
+// HTML/CSS day-strip showing sun/shade segments for a POI with a "now" marker.
+// Renders at an explicit height so the bar stays readable on any width — the
+// previous SVG with preserveAspectRatio="none" squished to ~25px on desktop.
 import type { ReactElement } from 'react'
 
 export type SunTimelineProps = {
@@ -8,10 +10,7 @@ export type SunTimelineProps = {
   marker?: Date
 }
 
-const VB_W = 1440 // one logical unit per minute of the day
-const VB_H = 60
-const BAR_Y = 8
-const BAR_H = 28
+const MINUTES_IN_DAY = 1440
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
@@ -19,7 +18,47 @@ function startOfDay(d: Date): Date {
 
 function minutesInto(day: Date, t: Date): number {
   const ms = t.getTime() - day.getTime()
-  return Math.max(0, Math.min(VB_W, ms / 60000))
+  return Math.max(0, Math.min(MINUTES_IN_DAY, ms / 60000))
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
+}
+
+function fmtHm(d: Date): string {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+type Cell = { key: string; minutes: number; kind: 'sun' | 'shade' | 'night' }
+
+function buildCells(
+  segments: Array<{ from: Date; to: Date; sunny: boolean }>,
+  day: Date,
+): Cell[] {
+  const cells: Cell[] = []
+  let cursor = 0
+  segments.forEach((s, i) => {
+    const start = minutesInto(day, s.from)
+    const end = minutesInto(day, s.to)
+    if (start > cursor) {
+      cells.push({ key: `night-${i}`, minutes: start - cursor, kind: 'night' })
+    }
+    const w = Math.max(0, end - start)
+    if (w > 0) {
+      cells.push({ key: `seg-${i}`, minutes: w, kind: s.sunny ? 'sun' : 'shade' })
+    }
+    cursor = end
+  })
+  if (cursor < MINUTES_IN_DAY) {
+    cells.push({ key: 'tail', minutes: MINUTES_IN_DAY - cursor, kind: 'night' })
+  }
+  return cells
+}
+
+const CELL_BG: Record<Cell['kind'], string> = {
+  sun: 'bg-amber-400',
+  shade: 'bg-slate-400',
+  night: 'bg-blue-900',
 }
 
 export function SunTimeline(props: SunTimelineProps): ReactElement {
@@ -27,58 +66,84 @@ export function SunTimeline(props: SunTimelineProps): ReactElement {
   const dayAnchor = segments[0]?.from ?? marker ?? new Date()
   const day = startOfDay(dayAnchor)
 
-  const markerX = marker ? minutesInto(day, marker) : null
-  const ticks = [6, 12, 18]
+  const cells = buildCells(segments, day)
+  const markerPct = marker ? (minutesInto(day, marker) / MINUTES_IN_DAY) * 100 : null
+
+  const tickHours = [0, 6, 12, 18, 24]
 
   return (
-    <svg
-      viewBox={`0 0 ${VB_W} ${VB_H}`}
-      preserveAspectRatio="none"
-      width="100%"
-      role="img"
-      aria-label="Daily sun timeline"
-      className="block"
-    >
-      {/* Night background spans the whole day. */}
-      <rect x={0} y={BAR_Y} width={VB_W} height={BAR_H} fill="#1e3a8a" />
+    <div role="img" aria-label="Daily sun timeline" className="select-none">
+      <div className="relative">
+        <div className="relative h-12 sm:h-14 rounded-lg overflow-hidden ring-1 ring-slate-200 bg-blue-900 shadow-sm">
+          <div className="absolute inset-0 flex">
+            {cells.map((c) => (
+              <div
+                key={c.key}
+                style={{ flexGrow: c.minutes }}
+                className={CELL_BG[c.kind]}
+              />
+            ))}
+          </div>
 
-      {segments.map((s, i) => {
-        const x1 = minutesInto(day, s.from)
-        const x2 = minutesInto(day, s.to)
-        const w = Math.max(0, x2 - x1)
-        const fill = s.sunny ? '#fbbf24' : '#9ca3af'
-        return <rect key={i} x={x1} y={BAR_Y} width={w} height={BAR_H} fill={fill} />
-      })}
+          {tickHours.slice(1, -1).map((h) => (
+            <div
+              key={`grid-${h}`}
+              aria-hidden="true"
+              className="absolute top-0 bottom-0 w-px bg-white/20 pointer-events-none"
+              style={{ left: `${(h / 24) * 100}%` }}
+            />
+          ))}
 
-      {ticks.map((h) => {
-        const x = h * 60
-        return (
-          <g key={h}>
-            <line x1={x} x2={x} y1={BAR_Y + BAR_H} y2={BAR_Y + BAR_H + 4} stroke="#475569" strokeWidth={1} />
-            <text
-              x={x}
-              y={BAR_Y + BAR_H + 16}
-              textAnchor="middle"
-              fontSize={12}
-              fill="#475569"
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
+          {markerPct !== null ? (
+            <div
+              aria-hidden="true"
+              className="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none"
+              style={{ left: `${markerPct}%` }}
+            />
+          ) : null}
+        </div>
+
+        {markerPct !== null && marker ? (
+          <div
+            className="absolute -top-2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-rose-500 text-white text-[10px] font-semibold tabular-nums shadow pointer-events-none"
+            style={{ left: `clamp(1.5rem, ${markerPct}%, calc(100% - 1.5rem))` }}
+          >
+            {fmtHm(marker)}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative mt-1.5 h-4">
+        {tickHours.map((h) => {
+          const pct = (h / 24) * 100
+          const align =
+            h === 0 ? 'translate-x-0' : h === 24 ? '-translate-x-full' : '-translate-x-1/2'
+          return (
+            <span
+              key={h}
+              className={`absolute top-0 text-[10px] sm:text-xs text-slate-500 tabular-nums ${align}`}
+              style={{ left: `${pct}%` }}
             >
-              {`${h.toString().padStart(2, '0')}:00`}
-            </text>
-          </g>
-        )
-      })}
+              {`${pad2(h === 24 ? 24 : h)}:00`}
+            </span>
+          )
+        })}
+      </div>
 
-      {markerX !== null ? (
-        <line
-          x1={markerX}
-          x2={markerX}
-          y1={BAR_Y - 2}
-          y2={BAR_Y + BAR_H + 2}
-          stroke="#dc2626"
-          strokeWidth={2}
-        />
-      ) : null}
-    </svg>
+      <div className="mt-3 flex items-center gap-3 text-xs text-slate-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block w-3 h-3 rounded-sm bg-amber-400" />
+          Sun
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block w-3 h-3 rounded-sm bg-slate-400" />
+          Shade
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block w-3 h-3 rounded-sm bg-blue-900" />
+          Night
+        </span>
+      </div>
+    </div>
   )
 }
