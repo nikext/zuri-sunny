@@ -5,8 +5,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { TimeSlider } from '#/components/TimeSlider'
 import { FilterBar } from '#/components/FilterBar'
 import { PoiSheet } from '#/components/PoiSheet'
+import { SkyChip } from '#/components/SkyChip'
 import { buildSpatialIndex } from '#/lib/shadows'
 import { dailyTimeline } from '#/lib/timeline'
+import { getSunTimes } from '#/lib/sun'
 import { useMapData } from '#/lib/map-context'
 import type { Category } from '#/lib/types'
 
@@ -20,7 +22,7 @@ function Home() {
   const navigate = useNavigate({ from: Route.fullPath })
   const search = Route.useSearch()
   const outdoor = search.outdoor ?? false
-  const { filteredPois, buildings, buildingsLoaded, selectedId, setSelectedId, t, setT, cat } =
+  const { filteredPois, buildings, buildingsLoaded, selectedId, setSelectedId, t, setT, cat, sky, rating } =
     useMapData()
 
   // Sync `t` to URL with a small debounce so dragging doesn't spam history.
@@ -53,6 +55,11 @@ function Home() {
     if (!buildingsLoaded) return null
     return dailyTimeline(selectedPoi, spatialIndex, buildings, t)
   }, [selectedPoi, spatialIndex, buildings, buildingsLoaded, t])
+
+  const { sunrise: chipSunrise, sunset: chipSunset } = useMemo(
+    () => getSunTimes(t, ZURICH.lat, ZURICH.lon),
+    [t],
+  )
 
   const handleCategoryChange = useCallback(
     (next: Category) => {
@@ -88,6 +95,12 @@ function Home() {
             outdoor={outdoor}
             onOutdoorChange={handleOutdoorChange}
           />
+        </div>
+      </div>
+
+      <div className="absolute top-14 right-3 z-20 pointer-events-none sm:top-16">
+        <div className="pointer-events-auto">
+          <SkyChip sky={sky} sunrise={chipSunrise} sunset={chipSunset} />
         </div>
       </div>
 
