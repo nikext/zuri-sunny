@@ -71,3 +71,5 @@ data/              local SQLite (gitignored)
 - `nitro-nightly` is pinned (not `@latest`) — recent 4.x nightlies broke the SSR self-fetch pattern. See `docs/prod.md`.
 
 For the full deployment journey — what broke on Railway, why, and how it was fixed — see [`docs/prod.md`](./docs/prod.md).
+
+For the cloud-aware sun + per-spot daily rating feature (sky chip, marker numbers, overcast desaturation), see [`docs/cloud-aware-sun.md`](./docs/cloud-aware-sun.md).
