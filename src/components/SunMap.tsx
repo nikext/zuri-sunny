@@ -28,10 +28,11 @@ const DEFAULT_ZOOM = 14
 /** Below this zoom we never draw any rating numbers — at city scale the
  *  signal-to-noise ratio is bad even with overlap dedup. */
 const RATING_HARD_HIDE_ZOOM = 13
-/** Screen-space cell (pixels) for the overlap dedup. Markers are at most
- *  ~32px diameter (radiusMaxPixels=16). 36px gives breathing room around
- *  the labels so adjacent numbers don't collide. */
-const LABEL_CELL_PX = 36
+/** Minimum pixel distance between any two label centers. If two markers are
+ *  closer than this on screen, BOTH lose their label (Google-Maps-style: when
+ *  in doubt, hide; the user zooms in to disambiguate). Markers are up to
+ *  ~32px diameter (radiusMaxPixels=16) so this leaves a small visual gap. */
+const MIN_LABEL_DIST_PX = 36
 
 function buildLayers(
   pois: Poi[],
@@ -246,26 +247,55 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     if (!overlay) return
     const map = mapRef.current
 
-    // Compute the set of POIs whose rating label is allowed to render. Above
-    // the hard-hide zoom we project each POI to pixel coords and bucket into
-    // 36px cells; the first POI to claim a cell gets the label, the rest are
-    // dropped. Result: as the user zooms in, more labels survive naturally.
+    // Compute the set of POIs whose rating label is allowed to render. Project
+    // each POI to pixel coords, then drop any label that has a neighbor within
+    // MIN_LABEL_DIST_PX — both POIs in an overlapping pair lose their label,
+    // matching Google Maps's "hide when in doubt" behavior. Cell bucketing
+    // (cell size = MIN_LABEL_DIST_PX) keeps the neighbor search local: we only
+    // need to check each POI's own cell + 8 neighbors.
     const visibleLabelIds = new Set<string>()
     if (map && zoom >= RATING_HARD_HIDE_ZOOM) {
-      const claimed = new Set<string>()
+      const projected: Array<{ id: string; x: number; y: number }> = []
       for (const p of pois) {
-        let pt: { x: number; y: number }
         try {
-          pt = map.project([p.lon, p.lat])
+          const pt = map.project([p.lon, p.lat])
+          projected.push({ id: p.id, x: pt.x, y: pt.y })
         } catch {
-          continue
+          // skip un-projectable POI
         }
-        const cx = Math.floor(pt.x / LABEL_CELL_PX)
-        const cy = Math.floor(pt.y / LABEL_CELL_PX)
+      }
+      const cells = new Map<string, number[]>()
+      for (let i = 0; i < projected.length; i++) {
+        const p = projected[i]!
+        const cx = Math.floor(p.x / MIN_LABEL_DIST_PX)
+        const cy = Math.floor(p.y / MIN_LABEL_DIST_PX)
         const key = `${cx},${cy}`
-        if (claimed.has(key)) continue
-        claimed.add(key)
-        visibleLabelIds.add(p.id)
+        let bucket = cells.get(key)
+        if (!bucket) {
+          bucket = []
+          cells.set(key, bucket)
+        }
+        bucket.push(i)
+      }
+      const minDistSq = MIN_LABEL_DIST_PX * MIN_LABEL_DIST_PX
+      outer: for (let i = 0; i < projected.length; i++) {
+        const a = projected[i]!
+        const cx = Math.floor(a.x / MIN_LABEL_DIST_PX)
+        const cy = Math.floor(a.y / MIN_LABEL_DIST_PX)
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const bucket = cells.get(`${cx + dx},${cy + dy}`)
+            if (!bucket) continue
+            for (const j of bucket) {
+              if (j === i) continue
+              const b = projected[j]!
+              const ddx = a.x - b.x
+              const ddy = a.y - b.y
+              if (ddx * ddx + ddy * ddy < minDistSq) continue outer
+            }
+          }
+        }
+        visibleLabelIds.add(a.id)
       }
     }
 
