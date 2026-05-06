@@ -6,9 +6,9 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { SunMap } from '#/components/SunMap'
 import { useSunStatus } from '#/lib/use-sun-status'
 import { isOpenAt } from '#/lib/opening-hours'
-import { getPoisInBbox, getBuildingsInBbox } from '#/server/functions'
+import { getPoisInBbox, getBuildingsInBbox, getSkyAt } from '#/server/functions'
 import { MapDataProvider, type MapData } from '#/lib/map-context'
-import type { Building, Category, Poi } from '#/lib/types'
+import type { Building, Category, Poi, Sky } from '#/lib/types'
 
 type AppSearch = {
   t?: string
@@ -145,12 +145,32 @@ function AppLayout() {
     return result
   }, [pois, cat, outdoor])
 
-  const { sunny } = useSunStatus({
+  const { sunny, rating } = useSunStatus({
     pois: filteredPois,
     buildings,
     t,
     enabled: buildingsLoaded,
   })
+
+  const [sky, setSky] = useState<Sky | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // Coalesce slider scrubs — only fetch 250ms after the slider settles.
+    const timer = setTimeout(() => {
+      getSkyAt({ data: { at: t.toISOString() } })
+        .then((res) => {
+          if (!cancelled) setSky((res ?? null) as Sky | null)
+        })
+        .catch(() => {
+          if (!cancelled) setSky(null)
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [t])
 
   const openNow = useMemo<Record<string, boolean>>(() => {
     const out: Record<string, boolean> = {}
@@ -174,6 +194,8 @@ function AppLayout() {
       buildingsLoaded,
       filteredPois,
       sunny,
+      rating,
+      sky,
       openNow,
       selectedId,
       setSelectedId,
@@ -181,7 +203,7 @@ function AppLayout() {
       setT,
       cat,
     }),
-    [pois, buildings, buildingsLoaded, filteredPois, sunny, openNow, selectedId, t, cat],
+    [pois, buildings, buildingsLoaded, filteredPois, sunny, rating, sky, openNow, selectedId, t, cat],
   )
 
   return (
