@@ -8,6 +8,7 @@ import { getPoiById, getBuildingsInBbox } from '#/server/functions'
 import { isOpenAt, minutesUntilClose, parseOpeningHoursWeek } from '#/lib/opening-hours'
 import { dailyTimeline } from '#/lib/timeline'
 import { buildSpatialIndex } from '#/lib/shadows'
+import { dailyRating } from '#/lib/score'
 import { summarizeSunWindows } from '#/lib/sun-summary'
 import { getSunTimes } from '#/lib/sun'
 import { SunTimeline } from '#/components/SunTimeline'
@@ -119,6 +120,10 @@ function SpotDetail(): ReactElement {
     return dailyTimeline(poi as Poi, spatialIndex, buildings, t)
   }, [poi, spatialIndex, buildings, t])
   const sunSummary = useMemo(() => summarizeSunWindows(timeline), [timeline])
+  const rating = useMemo<number | null>(() => {
+    if (!poi) return null
+    return dailyRating(poi as Poi, spatialIndex, buildings, t)
+  }, [poi, spatialIndex, buildings, t])
   const sunTimes = useMemo(() => {
     if (!poi) return null
     try {
@@ -298,6 +303,17 @@ function SpotDetail(): ReactElement {
           <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
             Sun timeline
           </h2>
+          {typeof rating === 'number' ? (
+            <p className="mt-2 text-sm text-slate-600">
+              {rating === 0
+                ? (poi.openingHours
+                  ? 'In shade for all of today’s open hours.'
+                  : 'In shade for all of daylight today.')
+                : (poi.openingHours
+                  ? `In direct sun for about ${rating}% of today’s open hours (clear-sky estimate). See the sky chip for today’s actual conditions.`
+                  : `In direct sun for about ${rating}% of today’s daylight hours (clear-sky estimate). See the sky chip for today’s actual conditions.`)}
+            </p>
+          ) : null}
           <div className="mt-3 sm:mt-4 px-1 pt-3 sm:pt-4">
             <SunTimeline segments={timeline} marker={t} />
           </div>
