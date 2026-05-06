@@ -116,6 +116,7 @@ function Home() {
         poi={selectedPoi}
         t={t}
         timeline={selectedTimeline}
+        rating={selectedPoi ? (rating[selectedPoi.id] ?? null) : null}
         onClose={() => setSelectedId(null)}
       />
     </>

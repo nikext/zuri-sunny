@@ -11,6 +11,8 @@ export type PoiSheetProps = {
   t: Date
   /** Sun timeline for this POI on the displayed day. */
   timeline?: Array<{ from: Date; to: Date; sunny: boolean }> | null
+  /** 0..99 daily exposure rating for the displayed day; null hides the line. */
+  rating?: number | null
   onClose: () => void
 }
 
@@ -56,6 +58,18 @@ function buildAddress(tags: Record<string, string> | null | undefined): string {
 
 type Segment = { from: Date; to: Date; sunny: boolean }
 
+function ratingExplanation(rating: number | null | undefined, openHoursParseable: boolean): string | null {
+  if (typeof rating !== 'number') return null
+  if (rating === 0) {
+    return openHoursParseable
+      ? 'In shade for all of today’s open hours.'
+      : 'In shade for all of daylight today.'
+  }
+  return openHoursParseable
+    ? `In direct sun for about ${rating}% of today’s open hours (clear-sky estimate). See the sky chip for today’s actual conditions.`
+    : `In direct sun for about ${rating}% of today’s daylight hours (clear-sky estimate). See the sky chip for today’s actual conditions.`
+}
+
 function sunStatus(timeline: Segment[] | null | undefined, t: Date): string | null {
   if (!timeline || timeline.length === 0) return null
   const tMs = t.getTime()
@@ -67,13 +81,17 @@ function sunStatus(timeline: Segment[] | null | undefined, t: Date): string | nu
 }
 
 export function PoiSheet(props: PoiSheetProps): ReactElement | null {
-  const { poi, t, timeline, onClose } = props
+  const { poi, t, timeline, rating, onClose } = props
   if (!poi) return null
 
   const address = buildAddress(poi.tags)
   const open = isOpenAt(poi.openingHours, t)
   const closingIn = open ? minutesUntilClose(poi.openingHours, t) : null
   const sun = sunStatus(timeline ?? null, t)
+  const explanation = ratingExplanation(
+    rating ?? null,
+    !!(poi.openingHours && poi.openingHours.trim() !== ''),
+  )
   const hasOutdoor = hasOutdoorSeating(poi.tags)
   // Prefer name-based search so Google resolves to the actual venue card rather
   // than dropping a generic pin at the lat/lon. Include address (or city) to
@@ -158,6 +176,10 @@ export function PoiSheet(props: PoiSheetProps): ReactElement | null {
             <p className="rounded-md bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1.5 text-sm font-medium">
               {sun}
             </p>
+          ) : null}
+
+          {explanation ? (
+            <p className="text-xs text-slate-500">{explanation}</p>
           ) : null}
         </div>
 
