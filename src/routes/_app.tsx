@@ -214,6 +214,8 @@ function AppLayout() {
             pois={filteredPois}
             buildings={buildings}
             sunny={sunny}
+            rating={rating}
+            sky={sky}
             openNow={openNow}
             selectedId={selectedId}
             onSelect={setSelectedId}

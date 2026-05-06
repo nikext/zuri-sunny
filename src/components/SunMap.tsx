@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, IControl } from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
-import { PolygonLayer, ScatterplotLayer } from '@deck.gl/layers'
-import type { Building, Poi } from '#/lib/types'
+import { PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
+import type { Building, Poi, Sky } from '#/lib/types'
 
 export type SunMapProps = {
   pois: Poi[]
   buildings: Building[]
   /** Map of POI id -> sunny? Missing keys default to false (treat as shaded). */
   sunny: Record<string, boolean>
+  /** POI id -> 0..99 daily rating; missing keys render no number. */
+  rating: Record<string, number>
+  /** Current sky state for the city, or null when unavailable. */
+  sky: Sky | null
   /** Map of POI id -> open at currently displayed time? Missing keys default to true (assume open). */
   openNow: Record<string, boolean>
   selectedId?: string | null
@@ -21,15 +25,29 @@ export type SunMapProps = {
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 const ZURICH_CENTER: [number, number] = [8.5417, 47.3769] // [lon, lat]
 const DEFAULT_ZOOM = 14
+const RATING_ZOOM_THRESHOLD = 14
 
 function buildLayers(
   pois: Poi[],
   buildings: Building[],
   sunny: Record<string, boolean>,
+  rating: Record<string, number>,
+  sky: Sky | null,
   openNow: Record<string, boolean>,
   selectedId: string | null | undefined,
   onSelect: (id: string) => void,
+  zoom: number,
 ) {
+  const overcast = sky?.state === 'overcast'
+  // 0.7 multiplier on the gold RGB channels — preserves alpha so closed/open
+  // distinction (alpha 200 vs 255) is unchanged.
+  const goldOpen: [number, number, number, number] = overcast
+    ? [Math.round(255 * 0.7), Math.round(200 * 0.7), Math.round(40 * 0.7), 255]
+    : [255, 200, 40, 255]
+  const goldClosed: [number, number, number, number] = overcast
+    ? [Math.round(230 * 0.7), Math.round(180 * 0.7), Math.round(40 * 0.7), 200]
+    : [230, 180, 40, 200]
+
   return [
     new PolygonLayer<Building>({
       id: 'buildings',
@@ -55,8 +73,8 @@ function buildLayers(
       getFillColor: (p: Poi) =>
         sunny[p.id]
           ? openNow[p.id] === false
-            ? [230, 180, 40, 200]
-            : [255, 200, 40, 255]
+            ? goldClosed
+            : goldOpen
           : openNow[p.id] === false
             ? [80, 90, 110, 140]
             : [80, 90, 110, 230],
@@ -70,16 +88,36 @@ function buildLayers(
         if (obj) onSelect(obj.id)
       },
       updateTriggers: {
-        getFillColor: [sunny, openNow],
+        getFillColor: [sunny, openNow, overcast],
         getRadius: [selectedId],
         getLineWidth: [selectedId],
+      },
+    }),
+    new TextLayer<Poi>({
+      id: 'poi-ratings',
+      data: pois,
+      visible: zoom >= RATING_ZOOM_THRESHOLD,
+      getPosition: (p: Poi) => [p.lon, p.lat],
+      getText: (p: Poi) => {
+        const v = rating[p.id]
+        return typeof v === 'number' ? String(v) : ''
+      },
+      getColor: [255, 255, 255, 240],
+      getSize: 12,
+      sizeUnits: 'pixels',
+      parameters: { depthCompare: 'always' },
+      pickable: false,
+      fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif',
+      fontWeight: 700,
+      updateTriggers: {
+        getText: [rating],
       },
     }),
   ]
 }
 
 export function SunMap(props: SunMapProps): React.ReactElement {
-  const { pois, buildings, sunny, openNow, selectedId, onSelect, onViewportChange } = props
+  const { pois, buildings, sunny, rating, sky, openNow, selectedId, onSelect, onViewportChange } = props
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -88,6 +126,7 @@ export function SunMap(props: SunMapProps): React.ReactElement {
   const onSelectRef = useRef(onSelect)
   const onViewportChangeRef = useRef(onViewportChange)
   const [mounted, setMounted] = useState(false)
+  const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM)
 
   useEffect(() => {
     onSelectRef.current = onSelect
@@ -155,8 +194,12 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     }
     map.on('moveend', handleMoveEnd)
 
+    const handleZoom = () => setZoom(map.getZoom())
+    map.on('zoom', handleZoom)
+
     return () => {
       map.off('moveend', handleMoveEnd)
+      map.off('zoom', handleZoom)
       map.off('load', handleStyleLoad)
       try {
         map.removeControl(overlay as unknown as IControl)
@@ -174,12 +217,19 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     const overlay = overlayRef.current
     if (!overlay) return
     overlay.setProps({
-      layers: buildLayers(pois, buildings, sunny, openNow, selectedId, (id) =>
-        onSelectRef.current(id),
+      layers: buildLayers(
+        pois,
+        buildings,
+        sunny,
+        rating,
+        sky,
+        openNow,
+        selectedId,
+        (id) => onSelectRef.current(id),
+        zoom,
       ),
     })
-    // selectedId is included so a future highlight layer rebuilds; no visual diff yet.
-  }, [pois, buildings, sunny, openNow, selectedId])
+  }, [pois, buildings, sunny, rating, sky, openNow, selectedId, zoom])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
