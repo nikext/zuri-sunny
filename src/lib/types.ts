@@ -38,10 +38,39 @@ export type SunPosition = {
 // Worker message protocol
 export type WorkerInitMessage = { type: 'init'; buildings: Building[] }
 export type WorkerComputeMessage = { type: 'compute'; pois: Poi[]; t: string }
-export type WorkerInbound = WorkerInitMessage | WorkerComputeMessage
+export type WorkerScoreDailyMessage = {
+  type: 'score-daily'
+  pois: Poi[]
+  /** Local-day anchor as ISO string. The worker derives the YYYY-MM-DD cache
+   *  key from this in `Europe/Zurich`. */
+  day: string
+}
+export type WorkerInbound =
+  | WorkerInitMessage
+  | WorkerComputeMessage
+  | WorkerScoreDailyMessage
 
 export type WorkerReadyMessage = { type: 'ready' }
 export type WorkerResultMessage = { type: 'result'; sunny: Record<string, boolean> }
-export type WorkerOutbound = WorkerReadyMessage | WorkerResultMessage
+export type WorkerRatingMessage = {
+  type: 'rating'
+  /** POI id -> 0..99 integer (geometric daily exposure, clear-sky). */
+  rating: Record<string, number>
+}
+export type WorkerOutbound =
+  | WorkerReadyMessage
+  | WorkerResultMessage
+  | WorkerRatingMessage
 
 export type Category = 'breakfast' | 'coffee' | 'lunch' | 'apero' | 'all'
+
+/** Current sky state for the city (Open-Meteo derived). `null` from the server
+ *  fn means "no signal — degrade UI gracefully" (fetch failed or out of horizon). */
+export type Sky = {
+  state: 'clear' | 'partly' | 'overcast' | 'night'
+  cloudCoverPct: number
+  directRadiationWm2: number
+  sunAltitudeRad: number
+  /** ISO of the hour we sampled (snapped down to the hour). */
+  at: string
+}
