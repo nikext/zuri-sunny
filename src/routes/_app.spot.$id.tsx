@@ -142,7 +142,7 @@ function SpotDetail(): ReactElement {
       <div className="absolute inset-0 z-50 overflow-y-auto bg-white">
         <div className="min-h-full p-6 max-w-2xl mx-auto">
           <Link
-            to="/"
+            to="/map"
             search={(prev) => prev}
             className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
           >
@@ -190,7 +190,7 @@ function SpotDetail(): ReactElement {
     <div className="absolute inset-0 z-50 overflow-y-auto bg-white">
       <div className="min-h-full p-6 max-w-2xl mx-auto">
         <Link
-          to="/"
+          to="/map"
           search={(prev) => prev}
           className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
         >
