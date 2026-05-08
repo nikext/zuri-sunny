@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppMapRouteImport } from './routes/_app.map'
 import { Route as AppSpotIdRouteImport } from './routes/_app.spot.$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppMapRoute = AppMapRouteImport.update({
@@ -29,17 +35,18 @@ const AppSpotIdRoute = AppSpotIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppRouteWithChildren
+  '/': typeof IndexRoute
   '/map': typeof AppMapRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AppRouteWithChildren
+  '/': typeof IndexRoute
   '/map': typeof AppMapRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/map': typeof AppMapRoute
   '/_app/spot/$id': typeof AppSpotIdRoute
@@ -49,10 +56,11 @@ export interface FileRouteTypes {
   fullPaths: '/' | '/map' | '/spot/$id'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/map' | '/spot/$id'
-  id: '__root__' | '/_app' | '/_app/map' | '/_app/spot/$id'
+  id: '__root__' | '/' | '/_app' | '/_app/map' | '/_app/spot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
 }
 
@@ -63,6 +71,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/map': {
@@ -95,6 +110,7 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
