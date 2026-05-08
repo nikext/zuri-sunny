@@ -45,7 +45,7 @@ export function Hero(): ReactElement {
     <main className="relative min-h-screen w-full overflow-hidden bg-white text-black">
       <div
         className="absolute z-0"
-        style={{ top: '300px', right: 0, bottom: 0, left: 0 }}
+        style={{ top: '100px', right: 0, bottom: 0, left: 0, paddingTop: '100px' }}
       >
         <video
           ref={videoRef}
