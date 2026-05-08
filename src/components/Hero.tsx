@@ -43,10 +43,7 @@ export function Hero(): ReactElement {
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-white text-black">
-      <div
-        className="absolute z-0"
-        style={{ top: '100px', right: 0, bottom: 0, left: 0 }}
-      >
+      <div className="absolute inset-0 z-0">
         <video
           ref={videoRef}
           src="/video.mp4"
@@ -55,9 +52,9 @@ export function Hero(): ReactElement {
           playsInline
           preload="auto"
           className="w-full h-full object-cover"
-          style={{ opacity: 0, transform: 'translateY(100px)' }}
+          style={{ opacity: 0 }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-white/70 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white pointer-events-none" />
       </div>
 
       <section
