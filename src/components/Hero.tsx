@@ -26,11 +26,6 @@ export function Hero(): ReactElement {
           Open the map
           <ArrowRight aria-hidden="true" className="w-4 h-4" />
         </Link>
-
-        {/* Image slot — final asset wired in Task 6 */}
-        <figure className="w-full max-w-3xl mt-4">
-          {/* Placeholder until the user provides the asset. Removed in Task 6. */}
-        </figure>
       </section>
     </main>
   )
