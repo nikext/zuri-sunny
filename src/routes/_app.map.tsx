@@ -14,7 +14,7 @@ import type { Category } from '#/lib/types'
 
 const ZURICH = { lat: 47.3769, lon: 8.5417 }
 
-export const Route = createFileRoute('/_app/')({
+export const Route = createFileRoute('/_app/map')({
   component: Home,
 })
 
@@ -31,7 +31,7 @@ function Home() {
     if (tWriteTimer.current) clearTimeout(tWriteTimer.current)
     tWriteTimer.current = setTimeout(() => {
       navigate({
-        to: '/',
+        to: '/map',
         search: (prev) => ({ ...prev, t: t.toISOString() }),
         replace: true,
       })

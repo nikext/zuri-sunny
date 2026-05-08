@@ -10,16 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppMapRouteImport } from './routes/_app.map'
 import { Route as AppSpotIdRouteImport } from './routes/_app.spot.$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppMapRoute = AppMapRouteImport.update({
+  id: '/map',
+  path: '/map',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSpotIdRoute = AppSpotIdRouteImport.update({
@@ -29,25 +29,27 @@ const AppSpotIdRoute = AppSpotIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
+  '/': typeof AppRouteWithChildren
+  '/map': typeof AppMapRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AppIndexRoute
+  '/': typeof AppRouteWithChildren
+  '/map': typeof AppMapRoute
   '/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/_app/': typeof AppIndexRoute
+  '/_app/map': typeof AppMapRoute
   '/_app/spot/$id': typeof AppSpotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/spot/$id'
+  fullPaths: '/' | '/map' | '/spot/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/spot/$id'
-  id: '__root__' | '/_app' | '/_app/' | '/_app/spot/$id'
+  to: '/' | '/map' | '/spot/$id'
+  id: '__root__' | '/_app' | '/_app/map' | '/_app/spot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -63,11 +65,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
+    '/_app/map': {
+      id: '/_app/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof AppMapRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/spot/$id': {
@@ -81,12 +83,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
-  AppIndexRoute: typeof AppIndexRoute
+  AppMapRoute: typeof AppMapRoute
   AppSpotIdRoute: typeof AppSpotIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppIndexRoute: AppIndexRoute,
+  AppMapRoute: AppMapRoute,
   AppSpotIdRoute: AppSpotIdRoute,
 }
 
