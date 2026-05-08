@@ -2,6 +2,25 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
+@theme {
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+}
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-fade-rise {
+  animation: fade-rise 0.8s ease-out both;
+}
+@utility animate-fade-rise-delay {
+  animation: fade-rise 0.8s ease-out 0.2s both;
+}
+@utility animate-fade-rise-delay-2 {
+  animation: fade-rise 0.8s ease-out 0.4s both;
+}
+
 * {
   box-sizing: border-box;
 }
