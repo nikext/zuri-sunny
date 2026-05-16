@@ -74,4 +74,11 @@ data/              local SQLite (gitignored)
 
 For the full deployment journey — what broke on Railway, why, and how it was fixed — see [`docs/prod.md`](./docs/prod.md).
 
+
+![Alt text](./public/Screenshot3.png)
+
+![Alt text](./public/Screenshot2.png)
+
+![Alt text](./public/Screenshot1.png)
+
 For the cloud-aware sun + per-spot daily rating feature (sky chip, marker numbers, overcast desaturation), see [`docs/cloud-aware-sun.md`](./docs/cloud-aware-sun.md).
