@@ -6,6 +6,14 @@ A web app that shows which Zürich cafés, bars, and restaurants with outdoor se
 
 Built with TanStack Start (Vite + Nitro), Drizzle + better-sqlite3, MapLibre GL + deck.gl. Deploys to Railway as a single Node process with a persistent SQLite volume.
 
+## Screenshots
+
+![Zürich Sunny Spots screenshot 1](./public/Screenshot1.png)
+
+![Zürich Sunny Spots screenshot 2](./public/Screenshot2.png)
+
+![Zürich Sunny Spots screenshot 3](./public/Screenshot3.png)
+
 ## Local development
 
 ```bash
@@ -13,7 +21,7 @@ pnpm install
 pnpm run dev
 ```
 
-Open http://localhost:3000. On the very first request, the server will:
+Open [http://localhost:3000](http://localhost:3000). On the very first request, the server will:
 
 1. Apply Drizzle migrations to `./data/zurich.db`.
 2. Fetch all Zürich POIs and building footprints from the public Overpass API (~30–60s, blocking on the seed not the first response — the page renders immediately, data appears once seed completes).
@@ -41,12 +49,12 @@ Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites 
 ## Deploy to Railway
 
 1. Push this repo to GitHub.
-2. https://railway.com/new → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `pnpm install --frozen-lockfile && pnpm run build` on Node 24.
+2. [https://railway.com/new](https://railway.com/new) → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `pnpm install --frozen-lockfile && pnpm run build` on Node 24.
 3. **Provision a volume** for the SQLite database:
-   - In the service, click **Settings → Volumes → New volume**.
-   - Mount path: `/data`. Pick any size; <100MB is sufficient (current data is ~50MB).
+  - In the service, click **Settings → Volumes → New volume**.
+  - Mount path: `/data`. Pick any size; <100MB is sufficient (current data is ~50MB).
 4. **Set environment variables** under the Variables tab:
-   - `DB_PATH=/data/zurich.db`
+  - `DB_PATH=/data/zurich.db`
 5. Deploy. The first cold start runs migrations and seeds the DB from Overpass (logs print `[init] seeded N pois, M buildings` when complete).
 
 The default `railway.json` requests 1 replica with `ON_FAILURE` restart policy and a `/` healthcheck.
@@ -72,13 +80,11 @@ data/              local SQLite (gitignored)
 - Overpass blocks Node's default user agent — `src/server/overpass.ts` sends an explicit `User-Agent`.
 - `nitro-nightly` is pinned (not `@latest`) — recent 4.x nightlies broke the SSR self-fetch pattern. See `docs/prod.md`.
 
-For the full deployment journey — what broke on Railway, why, and how it was fixed — see [`docs/prod.md`](./docs/prod.md).
+For the full deployment journey — what broke on Railway, why, and how it was fixed — see `[docs/prod.md](./docs/prod.md)`.
+
+For the cloud-aware sun + per-spot daily rating feature (sky chip, marker numbers, overcast desaturation), see `[docs/cloud-aware-sun.md](./docs/cloud-aware-sun.md)`.
 
 
-![Alt text](./public/Screenshot3.png)
 
-![Alt text](./public/Screenshot2.png)
 
-![Alt text](./public/Screenshot1.png)
 
-For the cloud-aware sun + per-spot daily rating feature (sky chip, marker numbers, overcast desaturation), see [`docs/cloud-aware-sun.md`](./docs/cloud-aware-sun.md).
