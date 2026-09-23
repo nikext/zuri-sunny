@@ -1,5 +1,10 @@
 
-@import "tailwindcss";
+/* Scan only src/ for class names. Tailwind's automatic detection honours
+   .gitignore; in the Docker build .gitignore isn't present, so it also scanned
+   the first build pass's output and the SSR and client builds emitted
+   different CSS — the server-rendered <link> pointed at a file that didn't
+   exist (404, unstyled first paint). */
+@import "tailwindcss" source(".");
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
