@@ -5,6 +5,7 @@ import type {
   WorkerInbound,
   WorkerOutbound,
 } from './types'
+import { zhDayKey } from './zurich-time'
 
 export type UseSunStatusInput = {
   pois: Poi[]
@@ -26,17 +27,6 @@ export type UseSunStatusResult = {
    *  measured. */
   anchors: Record<string, [number, number]>
   loading: boolean
-}
-
-/** Returns 'YYYY-MM-DD' in Europe/Zurich. Used as the dependency key for
- *  re-dispatching score-daily so scrubbing within a day is free. */
-function zhDayKey(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Zurich',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d)
 }
 
 export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {

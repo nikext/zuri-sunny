@@ -4,6 +4,7 @@ import type { Map as MapLibreMap, IControl } from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { ScatterplotLayer, SolidPolygonLayer, TextLayer } from '@deck.gl/layers'
 import { AmbientLight, DirectionalLight, LightingEffect, _SunLight as SunLight } from '@deck.gl/core'
+import { Sun, SunDim } from 'lucide-react'
 import { getSunPosition } from '#/lib/sun'
 import type { Building, Poi, Sky } from '#/lib/types'
 
@@ -113,6 +114,31 @@ function viewportBbox(map: MapLibreMap): [number, number, number, number] {
   ]
 }
 
+const SHADOWS_PREF_KEY = 'zuri-sunny:shadows'
+
+/** Default for the shadows toggle. Building shadows re-render the city every
+ *  frame; phones and low-memory devices start with them off (the toggle is
+ *  one tap away), everything else with them on. An explicit choice sticks. */
+function initialShadowsOn(): boolean {
+  try {
+    const saved = window.localStorage.getItem(SHADOWS_PREF_KEY)
+    if (saved === 'on') return true
+    if (saved === 'off') return false
+  } catch {
+    // storage blocked (private mode etc.) — fall through to the heuristic
+  }
+  const nav = navigator as Navigator & {
+    deviceMemory?: number
+    connection?: { saveData?: boolean }
+  }
+  if (nav.connection?.saveData) return false
+  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4) return false
+  const phone =
+    window.matchMedia?.('(pointer: coarse)').matches &&
+    Math.max(window.screen.width, window.screen.height) < 1024
+  return !phone
+}
+
 /** Cool, semi-transparent shadows so street detail stays readable under them. */
 const SHADOW_COLOR: [number, number, number, number] = [0.1, 0.14, 0.26, 0.45]
 
@@ -145,7 +171,13 @@ function createLighting(): Lighting {
 
 type LightMode = 'sun' | 'overcast' | 'night'
 
-function tuneLighting(l: Lighting, mode: LightMode, t: Date, sunAltDeg: number): void {
+function tuneLighting(
+  l: Lighting,
+  mode: LightMode,
+  t: Date,
+  sunAltDeg: number,
+  castShadows: boolean,
+): void {
   l.sun.timestamp = t.getTime()
   if (mode === 'sun') {
     // Low sun is warmer and weaker.
@@ -155,7 +187,7 @@ function tuneLighting(l: Lighting, mode: LightMode, t: Date, sunAltDeg: number):
     l.ambient.color = [235, 240, 255]
     l.ambient.intensity = 1.0
     l.fill.intensity = 0
-    l.effect.shadowColor = SHADOW_COLOR
+    l.effect.shadowColor = castShadows ? SHADOW_COLOR : [0, 0, 0, 0]
     return
   }
   l.sun.intensity = 0
@@ -200,7 +232,8 @@ function buildLayers(
     new SolidPolygonLayer<Building>({
       id: 'buildings',
       data: buildings,
-      getPolygon: (b: Building) => b.footprint,
+      // Outer ring plus courtyards, so courtyard blocks render hollow.
+      getPolygon: (b: Building) => (b.holes && b.holes.length > 0 ? [b.footprint, ...b.holes] : b.footprint),
       extruded: true,
       getElevation: (b: Building) => b.heightM,
       getFillColor: [232, 228, 221, 255],
@@ -292,6 +325,9 @@ export function SunMap(props: SunMapProps): React.ReactElement {
   const mapRef = useRef<MapLibreMap | null>(null)
   const overlayRef = useRef<MapboxOverlay | null>(null)
   const lightingRef = useRef<Lighting | null>(null)
+  // Read by the overlay's layerFilter, which is fixed at construction.
+  const shadowsOnRef = useRef<boolean>(true)
+  const [shadowsOn, setShadowsOn] = useState<boolean>(true)
   // Keep latest callbacks in refs to avoid re-initializing the map on every prop change.
   const onSelectRef = useRef(onSelect)
   const onViewportChangeRef = useRef(onViewportChange)
@@ -314,6 +350,9 @@ export function SunMap(props: SunMapProps): React.ReactElement {
 
   // Mark client-mounted so SSR renders an empty div and we init in the browser.
   useEffect(() => {
+    const on = initialShadowsOn()
+    shadowsOnRef.current = on
+    setShadowsOn(on)
     setMounted(true)
   }, [])
 
@@ -367,8 +406,13 @@ export function SunMap(props: SunMapProps): React.ReactElement {
       // Only buildings cast shadows. Markers and rating labels would otherwise
       // throw little wedges across the map (TextLayer's sublayers don't
       // inherit a per-layer shadowEnabled flag, so filter by pass instead).
+      // With shadows toggled off, nothing is drawn into the shadow map at all.
       layerFilter: ({ layer, renderPass }) =>
-        renderPass !== 'shadow' || layer.id === 'buildings',
+        renderPass !== 'shadow' || (layer.id === 'buildings' && shadowsOnRef.current),
+      // Phones report 3× pixel density; rendering (and the shadow map, which
+      // is sized to the canvas) at 2× is visually indistinguishable and much
+      // cheaper on mobile GPUs.
+      useDevicePixels: Math.min(window.devicePixelRatio || 1, 2),
     })
     overlayRef.current = overlay
 
@@ -433,8 +477,9 @@ export function SunMap(props: SunMapProps): React.ReactElement {
   )
   const overcast = sky?.state === 'overcast'
   const daylight = sunAltDeg > 0
-  // Hard shadows only when there is direct sun to cast them.
-  const shadows = daylight && !overcast
+  // Hard shadows only when there is direct sun to cast them (and the viewer
+  // hasn't turned them off).
+  const shadows = daylight && !overcast && shadowsOn
 
   // Tint the sky (visible when the map is tilted towards the horizon).
   useEffect(() => {
@@ -462,7 +507,7 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     if (!overlay || !lighting) return
     const map = mapRef.current
 
-    tuneLighting(lighting, !daylight ? 'night' : shadows ? 'sun' : 'overcast', t, sunAltDeg)
+    tuneLighting(lighting, !daylight ? 'night' : overcast ? 'overcast' : 'sun', t, sunAltDeg, shadows)
 
     // Compute the set of POIs whose rating label is allowed to render. Project
     // each POI to pixel coords, then drop any label that has a neighbor within
@@ -550,6 +595,17 @@ export function SunMap(props: SunMapProps): React.ReactElement {
     moveTick,
   ])
 
+  const toggleShadows = () => {
+    const next = !shadowsOn
+    shadowsOnRef.current = next
+    setShadowsOn(next)
+    try {
+      window.localStorage.setItem(SHADOWS_PREF_KEY, next ? 'on' : 'off')
+    } catch {
+      // not persisted; the toggle still works for this visit
+    }
+  }
+
   const is3D = pitch > 5
   const toggle3D = () => {
     mapRef.current?.easeTo({ pitch: is3D ? 0 : PITCH_3D, duration: 600 })
@@ -579,6 +635,20 @@ export function SunMap(props: SunMapProps): React.ReactElement {
             className="w-10 h-10 rounded-full bg-white/90 backdrop-blur border border-slate-200 shadow-sm text-xs font-semibold text-slate-800 hover:bg-white active:bg-slate-100"
           >
             {is3D ? '2D' : '3D'}
+          </button>
+          <button
+            type="button"
+            onClick={toggleShadows}
+            aria-label={shadowsOn ? 'Hide building shadows' : 'Show building shadows'}
+            aria-pressed={shadowsOn}
+            title={shadowsOn ? 'Hide building shadows' : 'Show building shadows'}
+            className="w-10 h-10 rounded-full bg-white/90 backdrop-blur border border-slate-200 shadow-sm hover:bg-white active:bg-slate-100 inline-flex items-center justify-center"
+          >
+            {shadowsOn ? (
+              <Sun aria-hidden="true" className="w-5 h-5 text-amber-500" />
+            ) : (
+              <SunDim aria-hidden="true" className="w-5 h-5 text-slate-400" />
+            )}
           </button>
           <button
             type="button"

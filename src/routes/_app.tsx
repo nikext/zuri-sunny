@@ -7,6 +7,7 @@ import { SunMap } from '#/components/SunMap'
 import { useSunStatus } from '#/lib/use-sun-status'
 import { useBuildingTiles } from '#/lib/use-building-tiles'
 import { categoryMatches } from '#/lib/categories'
+import { zhDayKey } from '#/lib/zurich-time'
 import { isOpenAt } from '#/lib/opening-hours'
 import { getPoisInBbox, getSkyAt } from '#/server/functions'
 import { MapDataProvider, type MapData } from '#/lib/map-context'
@@ -116,7 +117,7 @@ function AppLayout() {
 
   // Meal chips depend on the calendar day (opening hours), not the minute, so
   // scrubbing the slider within a day doesn't refilter.
-  const dayKey = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
+  const dayKey = zhDayKey(t)
   const filteredPois = useMemo(() => {
     let result = pois.filter((p) => categoryMatches(p, cat, t))
     if (outdoor) result = result.filter(hasOutdoorSeating)

@@ -1,0 +1,1 @@
+ALTER TABLE `buildings` ADD `holes` text;

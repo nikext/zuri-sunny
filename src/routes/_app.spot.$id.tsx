@@ -12,6 +12,7 @@ import { dailyRating } from '#/lib/score'
 import { summarizeSunWindows } from '#/lib/sun-summary'
 import { getSunTimes } from '#/lib/sun'
 import { SunTimeline } from '#/components/SunTimeline'
+import { fmtHmZh as fmtHm, zhParts } from '#/lib/zurich-time'
 import type { Building, Category, Poi } from '#/lib/types'
 
 type SpotSearch = {
@@ -89,14 +90,6 @@ function formatCuisine(v: string): string {
     .map((s) => s.trim())
     .filter(Boolean)
     .join(' · ')
-}
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n)
-}
-
-function fmtHm(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 function formatMinutes(total: number): string {
@@ -184,7 +177,7 @@ function SpotDetail(): ReactElement {
   if (cuisine) badges.push({ key: 'cuisine', label: formatCuisine(cuisine) })
 
   // Today index (Mon=0..Sun=6) for highlighting in the week table.
-  const todayIdx = (t.getDay() + 6) % 7
+  const todayIdx = zhParts(t).weekday
 
   return (
     <div className="absolute inset-0 z-50 overflow-y-auto bg-white">

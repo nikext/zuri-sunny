@@ -1,6 +1,6 @@
 import RBush from 'rbush'
 import type { Building, LatLon, Poi } from './types'
-import { movePoint, lineIntersectsPolygon } from './geo'
+import { movePoint, lineIntersectsPolygon, pointInPolygonWithHoles } from './geo'
 import { getSunPosition } from './sun'
 
 export type BuildingIndexEntry = {
@@ -27,23 +27,15 @@ export function buildSpatialIndex(buildings: Building[]): BuildingIndex {
   return tree
 }
 
-/** Even-odd point-in-polygon test in lon/lat space. */
-function pointInPolygon(lon: number, lat: number, polygon: [number, number][]): boolean {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i]!
-    const [xj, yj] = polygon[j]!
-    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
 function buildingsContaining(index: BuildingIndex, p: LatLon): BuildingIndexEntry[] {
   return index
     .search({ minX: p.lon, minY: p.lat, maxX: p.lon, maxY: p.lat })
-    .filter((e) => pointInPolygon(p.lon, p.lat, e.building.footprint))
+    .filter((e) => pointInPolygonWithHoles(p, e.building.footprint, e.building.holes))
+}
+
+/** Every ring of a building: the outer wall plus any courtyard walls. */
+function ringsOf(b: Building): [number, number][][] {
+  return b.holes && b.holes.length > 0 ? [b.footprint, ...b.holes] : [b.footprint]
 }
 
 /** How far outside the facade a POI mapped inside its building is sampled —
@@ -99,21 +91,22 @@ function computeAnchor(poi: Poi, index: BuildingIndex): LatLon {
   // Closest point on every host edge, with that edge's unit normal.
   const edges: Array<{ d: number; x: number; y: number; nx: number; ny: number }> = []
   for (const host of hosts) {
-    const fp = host.building.footprint
-    for (let i = 0; i < fp.length; i++) {
-      const a = fp[i]!
-      const b = fp[(i + 1) % fp.length]!
-      const ax = (a[0] - poi.lon) * mPerDegLon
-      const ay = (a[1] - poi.lat) * mPerDegLat
-      const ex = (b[0] - poi.lon) * mPerDegLon - ax
-      const ey = (b[1] - poi.lat) * mPerDegLat - ay
-      const len2 = ex * ex + ey * ey
-      if (len2 < 1e-4) continue // closing vertex / duplicate point
-      const t = Math.min(1, Math.max(0, -(ax * ex + ay * ey) / len2))
-      const x = ax + t * ex
-      const y = ay + t * ey
-      const len = Math.sqrt(len2)
-      edges.push({ d: Math.hypot(x, y), x, y, nx: -ey / len, ny: ex / len })
+    for (const fp of ringsOf(host.building)) {
+      for (let i = 0; i < fp.length; i++) {
+        const a = fp[i]!
+        const b = fp[(i + 1) % fp.length]!
+        const ax = (a[0] - poi.lon) * mPerDegLon
+        const ay = (a[1] - poi.lat) * mPerDegLat
+        const ex = (b[0] - poi.lon) * mPerDegLon - ax
+        const ey = (b[1] - poi.lat) * mPerDegLat - ay
+        const len2 = ex * ex + ey * ey
+        if (len2 < 1e-4) continue // closing vertex / duplicate point
+        const t = Math.min(1, Math.max(0, -(ax * ex + ay * ey) / len2))
+        const x = ax + t * ex
+        const y = ay + t * ey
+        const len = Math.sqrt(len2)
+        edges.push({ d: Math.hypot(x, y), x, y, nx: -ey / len, ny: ex / len })
+      }
     }
   }
   edges.sort((p, q) => p.d - q.d)
@@ -164,10 +157,15 @@ export function isSunnyAt(
   const tanAlt = Math.tan(sun.altitudeRad)
 
   for (const c of candidates) {
-    const hit = lineIntersectsPolygon([start, end], c.building.footprint)
-    if (!hit) continue
-    const rayHeight = hit.distanceFromStartM * tanAlt
-    if (c.building.heightM > rayHeight) return false
+    // The first wall the ray meets — outer or courtyard — is where it is
+    // lowest, so that's the one that decides whether the building blocks it.
+    let nearestM = Infinity
+    for (const ring of ringsOf(c.building)) {
+      const hit = lineIntersectsPolygon([start, end], ring)
+      if (hit && hit.distanceFromStartM < nearestM) nearestM = hit.distanceFromStartM
+    }
+    if (nearestM === Infinity) continue
+    if (c.building.heightM > nearestM * tanAlt) return false
   }
   return true
 }

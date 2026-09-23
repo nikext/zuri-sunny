@@ -4,6 +4,7 @@ import { X, MapPin, ExternalLink, Umbrella } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import type { Poi } from '#/lib/types'
 import { isOpenAt, minutesUntilClose } from '#/lib/opening-hours'
+import { fmtHmZh as formatHm } from '#/lib/zurich-time'
 
 export type PoiSheetProps = {
   poi: Poi | null
@@ -14,14 +15,6 @@ export type PoiSheetProps = {
   /** 0..99 daily exposure rating for the displayed day; null hides the line. */
   rating?: number | null
   onClose: () => void
-}
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n)
-}
-
-function formatHm(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 function displayName(poi: Poi): string {

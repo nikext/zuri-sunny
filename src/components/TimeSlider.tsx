@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Calendar, Clock } from 'lucide-react'
 import { getSunTimes } from '#/lib/sun'
+import { fmtHmZh, zhDate, zhDayKey, zhParts } from '#/lib/zurich-time'
 
 export type TimeSliderProps = {
   /** Current selected time. */
@@ -13,35 +14,21 @@ export type TimeSliderProps = {
   onDayChange?: (day: Date) => void
 }
 
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n)
-}
-
-function formatTime(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-}
-
-function formatDateInput(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
+// Times and dates are shown and entered in Zürich time, whatever the
+// device's timezone.
+const formatTime = fmtHmZh
+const formatDateInput = zhDayKey
 
 function isValidDate(d: Date): boolean {
   return d instanceof Date && !Number.isNaN(d.getTime())
 }
 
-/** Build a Date for a given Y-M-D using the provided hour/minute (local time). */
-function buildDate(year: number, month: number, day: number, hours: number, minutes: number): Date {
-  return new Date(year, month, day, hours, minutes, 0, 0)
-}
-
-/** Fallback bounds: 06:00 -> 20:00 of value's local day. */
+/** Fallback bounds: 06:00 -> 20:00 of value's Zürich day. */
 function fallbackBounds(value: Date): { sunrise: Date; sunset: Date } {
-  const y = value.getFullYear()
-  const m = value.getMonth()
-  const d = value.getDate()
+  const { year, month, day } = zhParts(value)
   return {
-    sunrise: buildDate(y, m, d, 6, 0),
-    sunset: buildDate(y, m, d, 20, 0),
+    sunrise: zhDate(year, month, day, 6, 0),
+    sunset: zhDate(year, month, day, 20, 0),
   }
 }
 
@@ -74,10 +61,10 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
     if (!v) return
     const [ys, ms, ds] = v.split('-')
     const year = Number(ys)
-    const month = Number(ms) - 1
+    const month = Number(ms)
     const day = Number(ds)
     if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return
-    const noon = buildDate(year, month, day, 12, 0)
+    const noon = zhDate(year, month, day, 12, 0)
     if (onDayChange) onDayChange(noon)
     else onChange(noon)
   }

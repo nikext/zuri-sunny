@@ -86,6 +86,37 @@ describe('slimBuilding', () => {
       maxLon: 8.52792,
     })
     expect(wire).not.toHaveProperty('id')
+    expect(wire).not.toHaveProperty('holes')
+  })
+
+  it('keeps and rounds courtyard rings of multipolygon buildings', () => {
+    const wire = slimBuilding({
+      id: 'relation/1',
+      footprint: [
+        [8.5, 47.3],
+        [8.6, 47.3],
+        [8.6, 47.4],
+      ],
+      holes: [
+        [
+          [8.5212345, 47.3212345],
+          [8.5312345, 47.3212345],
+          [8.5312345, 47.3312345],
+        ],
+      ],
+      heightM: 18,
+      minLat: 47.3,
+      maxLat: 47.4,
+      minLon: 8.5,
+      maxLon: 8.6,
+    })
+    expect(wire.holes).toEqual([
+      [
+        [8.52123, 47.32123],
+        [8.53123, 47.32123],
+        [8.53123, 47.33123],
+      ],
+    ])
   })
 })
 

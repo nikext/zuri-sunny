@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest'
-import { fetchPois, fetchBuildings } from './overpass'
+import { assembleRings, estimateHeightM, fetchPois, fetchBuildings } from './overpass'
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -140,7 +140,7 @@ describe('fetchBuildings', () => {
     expect(b.heightM).toBe(9) // 3 levels * 3
 
     const c = byId['way/102']!
-    expect(c.heightM).toBe(10) // default
+    expect(c.heightM).toBe(9) // building=yes: typical 3 storeys
 
     expect(byId['way/103']).toBeUndefined()
   })
@@ -185,8 +185,90 @@ describe('fetchBuildings', () => {
     const byId = Object.fromEntries(rows.map((r) => [r.id, r]))
     expect(byId['way/200']!.heightM).toBe(12)
     expect(byId['way/201']!.heightM).toBe(8)
-    // negative height falls through to default.
-    expect(byId['way/202']!.heightM).toBe(10)
+    // negative height falls through to the building=yes estimate.
+    expect(byId['way/202']!.heightM).toBe(9)
+  })
+})
+
+describe('multipolygon buildings', () => {
+  // A 3×3 block split into two outer fragments (one drawn backwards), with a
+  // 1×1 courtyard; the outer ways are also tagged as buildings themselves.
+  const g = (pts: Array<[number, number]>) => pts.map(([lon, lat]) => ({ lon, lat }))
+  const OUTER_A = g([
+    [0, 0],
+    [3, 0],
+    [3, 3],
+  ])
+  const OUTER_B = g([
+    [0, 0],
+    [0, 3],
+    [3, 3],
+  ]) // shares both end nodes with OUTER_A, reversed
+  const INNER = g([
+    [1, 1],
+    [2, 1],
+    [2, 2],
+    [1, 2],
+    [1, 1],
+  ])
+  const fixture = {
+    elements: [
+      {
+        type: 'relation',
+        id: 900,
+        tags: { type: 'multipolygon', building: 'apartments', 'building:levels': '6' },
+        members: [
+          { type: 'way', ref: 1, role: 'outer', geometry: OUTER_A },
+          { type: 'way', ref: 2, role: 'outer', geometry: OUTER_B },
+          { type: 'way', ref: 3, role: 'inner', geometry: INNER },
+        ],
+      },
+      { type: 'way', id: 1, tags: { building: 'yes' }, geometry: OUTER_A },
+      { type: 'way', id: 50, tags: { building: 'yes' }, geometry: INNER.map((p) => ({ lon: p.lon + 10, lat: p.lat })) },
+    ],
+  }
+
+  it('joins split outer ways into one ring and keeps the courtyard as a hole', async () => {
+    const fetcher = vi.fn(async () => jsonResponse(fixture)) as unknown as typeof fetch
+    const rows = await fetchBuildings({ fetcher })
+    const rel = rows.find((r) => r.id === 'relation/900')!
+    expect(rel).toBeDefined()
+    expect(rel.footprint).toHaveLength(5)
+    expect(rel.footprint[0]).toEqual(rel.footprint[4])
+    expect(rel.holes).toEqual([INNER.map((p) => [p.lon, p.lat])])
+    expect(rel.heightM).toBe(18)
+    expect([rel.minLon, rel.minLat, rel.maxLon, rel.maxLat]).toEqual([0, 0, 3, 3])
+  })
+
+  it('drops standalone ways that duplicate a relation outer, keeps other ways', async () => {
+    const fetcher = vi.fn(async () => jsonResponse(fixture)) as unknown as typeof fetch
+    const ids = (await fetchBuildings({ fetcher })).map((r) => r.id).sort()
+    expect(ids).toEqual(['relation/900', 'way/50'])
+  })
+
+  it('discards fragments that never close', () => {
+    expect(
+      assembleRings([
+        [
+          [0, 0],
+          [1, 0],
+        ],
+        [
+          [5, 5],
+          [6, 5],
+        ],
+      ]),
+    ).toEqual([])
+  })
+})
+
+describe('estimateHeightM', () => {
+  it('prefers explicit height, then storeys, then the building type', () => {
+    expect(estimateHeightM({ building: 'house', height: '11.5' })).toBe(11.5)
+    expect(estimateHeightM({ building: 'house', 'building:levels': '4' })).toBe(12)
+    expect(estimateHeightM({ building: 'yes', 'building:levels': '4', 'roof:levels': '2' })).toBe(15)
+    expect(estimateHeightM({ building: 'garage' })).toBe(3)
+    expect(estimateHeightM({ building: 'apartments' })).toBeGreaterThan(estimateHeightM({ building: 'house' }))
   })
 })
 

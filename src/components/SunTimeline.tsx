@@ -2,6 +2,7 @@
 // Renders at an explicit height so the bar stays readable on any width — the
 // previous SVG with preserveAspectRatio="none" squished to ~25px on desktop.
 import type { ReactElement } from 'react'
+import { fmtHmZh, zhStartOfDay } from '#/lib/zurich-time'
 
 export type SunTimelineProps = {
   /** Daily timeline segments — sunny=true means in sunlight. */
@@ -12,10 +13,6 @@ export type SunTimelineProps = {
 
 const MINUTES_IN_DAY = 1440
 
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
-}
-
 function minutesInto(day: Date, t: Date): number {
   const ms = t.getTime() - day.getTime()
   return Math.max(0, Math.min(MINUTES_IN_DAY, ms / 60000))
@@ -25,9 +22,6 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
 
-function fmtHm(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-}
 
 type Cell = { key: string; minutes: number; kind: 'sun' | 'shade' | 'night' }
 
@@ -64,7 +58,8 @@ const CELL_BG: Record<Cell['kind'], string> = {
 export function SunTimeline(props: SunTimelineProps): ReactElement {
   const { segments, marker } = props
   const dayAnchor = segments[0]?.from ?? marker ?? new Date()
-  const day = startOfDay(dayAnchor)
+  // Zürich midnight, so the 00:00–24:00 strip is Zürich's day on any device.
+  const day = zhStartOfDay(dayAnchor)
 
   const cells = buildCells(segments, day)
   const markerPct = marker ? (minutesInto(day, marker) / MINUTES_IN_DAY) * 100 : null
@@ -108,7 +103,7 @@ export function SunTimeline(props: SunTimelineProps): ReactElement {
             className="absolute -top-2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-rose-500 text-white text-[10px] font-semibold tabular-nums shadow pointer-events-none"
             style={{ left: `clamp(1.5rem, ${markerPct}%, calc(100% - 1.5rem))` }}
           >
-            {fmtHm(marker)}
+            {fmtHmZh(marker)}
           </div>
         ) : null}
       </div>

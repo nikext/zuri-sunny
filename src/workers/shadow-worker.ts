@@ -6,6 +6,7 @@ import type {
 } from '../lib/types'
 import { buildSpatialIndex, isSunnyAt, sunAnchor, type BuildingIndex } from '../lib/shadows'
 import { dailyRating } from '../lib/score'
+import { zhDayKey } from '../lib/zurich-time'
 
 let index: BuildingIndex | null = null
 let buildings: Building[] = []
@@ -14,15 +15,6 @@ const ratingCache: Map<string, number> = new Map() // key: `${poiId}:${YYYY-MM-D
 const ctx = self as unknown as DedicatedWorkerGlobalScope
 
 const post = (msg: WorkerOutbound) => ctx.postMessage(msg)
-
-function zhDateKey(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Zurich',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d)
-}
 
 ctx.addEventListener('message', (e: MessageEvent<WorkerInbound>) => {
   const msg = e.data
@@ -56,7 +48,7 @@ ctx.addEventListener('message', (e: MessageEvent<WorkerInbound>) => {
       return
     }
     const day = new Date(msg.day)
-    const dayKey = zhDateKey(day)
+    const dayKey = zhDayKey(day)
     const rating: Record<string, number> = {}
     for (const poi of msg.pois) {
       const cacheKey = `${poi.id}:${dayKey}`

@@ -9,7 +9,10 @@ export type Building = {
   // Server-side row id; the bulk bbox endpoint omits it from the wire payload
   // since no client/worker code reads it. DB rows still carry it as the PK.
   id?: string
+  /** Outer ring. */
   footprint: BuildingFootprint
+  /** Inner rings (courtyards) of multipolygon buildings, if any. */
+  holes?: BuildingFootprint[] | null
   heightM: number
   minLat: number
   maxLat: number

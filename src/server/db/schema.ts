@@ -21,6 +21,8 @@ export const buildings = sqliteTable(
   {
     id: text('id').primaryKey(),
     footprint: text('footprint', { mode: 'json' }).notNull().$type<[number, number][]>(),
+    // Inner rings (courtyards) of multipolygon buildings; null for plain ways.
+    holes: text('holes', { mode: 'json' }).$type<[number, number][][]>(),
     heightM: real('height_m').notNull(),
     minLat: real('min_lat').notNull(),
     maxLat: real('max_lat').notNull(),

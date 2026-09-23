@@ -3,6 +3,7 @@ import type { BuildingIndex } from './shadows'
 import { dailyTimeline } from './timeline'
 import { getSunTimes } from './sun'
 import OpeningHours from 'opening_hours'
+import { fromZhWall, toZhWall } from './zurich-time'
 
 type Interval = { from: number; to: number } // ms epoch
 
@@ -39,7 +40,9 @@ function ratingWindow(poi: Poi, day: Date): Interval[] {
   const queryEnd = new Date(dayEnd + 12 * 60 * 60 * 1000)
   let raw: Array<[Date, Date, boolean | undefined, string | undefined]>
   try {
-    raw = parser.getOpenIntervals(queryStart, queryEnd) as Array<
+    // The library works in runtime-local time; query and read back in
+    // Zürich wall time (see zurich-time.ts).
+    raw = parser.getOpenIntervals(toZhWall(queryStart), toZhWall(queryEnd)) as Array<
       [Date, Date, boolean | undefined, string | undefined]
     >
   } catch {
@@ -48,9 +51,9 @@ function ratingWindow(poi: Poi, day: Date): Interval[] {
 
   // Intersect each open interval with [dayStart, dayEnd], then merge.
   const intersected: Interval[] = []
-  for (const [from, to] of raw) {
-    const a = Math.max(from.getTime(), dayStart)
-    const b = Math.min(to.getTime(), dayEnd)
+  for (const [fromWall, toWall] of raw) {
+    const a = Math.max(fromZhWall(fromWall).getTime(), dayStart)
+    const b = Math.min(fromZhWall(toWall).getTime(), dayEnd)
     if (b > a) intersected.push({ from: a, to: b })
   }
   if (intersected.length === 0) return daylightOnly

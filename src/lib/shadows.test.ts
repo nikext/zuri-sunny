@@ -139,3 +139,27 @@ describe('sunAnchor / POIs mapped inside their building', () => {
     expect(anchor.lat).toBeGreaterThan(neighbour.maxLat)
   })
 })
+
+describe('courtyard buildings (multipolygon holes)', () => {
+  // 60×60 m block, 12 m tall, with a 30×30 m courtyard; POI in the middle of it.
+  const outer = box(POI, { west: -30, east: 30, south: -30, north: 30 }, 12, 'block')
+  const court = box(POI, { west: -15, east: 15, south: -15, north: 15 }, 0, 'court')
+  const block: Building = { ...outer, holes: [court.footprint] }
+
+  it('treats a POI in the courtyard as outside the building', () => {
+    const idx = buildSpatialIndex([block])
+    expect(sunAnchor(POI, idx)).toEqual({ lat: POI.lat, lon: POI.lon })
+  })
+
+  it('lets the high summer sun into the courtyard', () => {
+    // Courtyard wall 15 m south, 12 m tall: at ~66° the ray clears it at ~34 m.
+    const idx = buildSpatialIndex([block])
+    expect(isSunnyAt(POI, idx, [block], NOON)).toBe(true)
+  })
+
+  it('shades the courtyard when the sun is low', () => {
+    // Winter noon (~19°): the ray is only ~5 m up at the courtyard wall.
+    const idx = buildSpatialIndex([block])
+    expect(isSunnyAt(POI, idx, [block], new Date('2026-12-21T11:15:00Z'))).toBe(false)
+  })
+})

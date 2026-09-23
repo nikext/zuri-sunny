@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { isOpenAt, nextStateChange, minutesUntilClose, parseOpeningHoursWeek } from './opening-hours'
+import { zhDate } from './zurich-time'
 
-// Build a UTC-anchored date so test results are deterministic regardless of CI tz.
-function utc(y: number, m: number, d: number, hh: number, mm = 0): Date {
-  return new Date(Date.UTC(y, m - 1, d, hh, mm))
+// Opening hours are Zürich wall-clock times, whatever the runtime's timezone
+// (tests run under TZ=UTC), so build test instants in Zürich time.
+function zh(y: number, m: number, d: number, hh: number, mm = 0): Date {
+  return zhDate(y, m, d, hh, mm)
 }
 
 describe('isOpenAt', () => {
@@ -21,11 +23,17 @@ describe('isOpenAt', () => {
 
   it('returns true on Wednesday at noon for "Mo-Fr 09:00-17:00"', () => {
     // 2026-05-06 is a Wednesday.
-    expect(isOpenAt('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 12))).toBe(true)
+    expect(isOpenAt('Mo-Fr 09:00-17:00', zh(2026, 5, 6, 12))).toBe(true)
+  })
+
+  it('evaluates in Zürich time, not the runtime timezone (visitor abroad / UTC server)', () => {
+    // 08:30 in Zürich is 06:30 UTC; a UTC-local evaluation called this closed.
+    expect(isOpenAt('Mo-Fr 08:00-12:00', new Date('2026-09-23T06:30:00Z'))).toBe(true)
+    expect(isOpenAt('Mo-Fr 08:00-12:00', new Date('2026-09-23T10:30:00Z'))).toBe(false)
   })
 
   it('returns false on Wednesday at 20:00 for "Mo-Fr 09:00-17:00"', () => {
-    expect(isOpenAt('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 20))).toBe(false)
+    expect(isOpenAt('Mo-Fr 09:00-17:00', zh(2026, 5, 6, 20))).toBe(false)
   })
 
   it('returns true for invalid syntax (graceful fallback)', () => {
@@ -41,14 +49,10 @@ describe('nextStateChange', () => {
 
   it('returns the closing time later that same day for "Mo-Fr 09:00-17:00"', () => {
     // 2026-05-04 is a Monday.
-    const monday10 = utc(2026, 5, 4, 10)
+    const monday10 = zh(2026, 5, 4, 10)
     const next = nextStateChange('Mo-Fr 09:00-17:00', monday10)
     expect(next).toBeInstanceOf(Date)
-    expect(next!.getUTCFullYear()).toBe(2026)
-    expect(next!.getUTCMonth()).toBe(4)
-    expect(next!.getUTCDate()).toBe(4)
-    // Should be later than monday10 and on the same UTC day.
-    expect(next!.getTime()).toBeGreaterThan(monday10.getTime())
+    expect(next!.toISOString()).toBe(zh(2026, 5, 4, 17).toISOString())
   })
 
   it('returns null for invalid syntax', () => {
@@ -64,11 +68,11 @@ describe('minutesUntilClose', () => {
   })
 
   it('returns null when closed at t', () => {
-    expect(minutesUntilClose('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 20))).toBe(null)
+    expect(minutesUntilClose('Mo-Fr 09:00-17:00', zh(2026, 5, 6, 20))).toBe(null)
   })
 
   it('returns minutes until close when open and closing within window', () => {
-    expect(minutesUntilClose('Mo-Fr 09:00-17:00', utc(2026, 5, 6, 16, 30))).toBe(30)
+    expect(minutesUntilClose('Mo-Fr 09:00-17:00', zh(2026, 5, 6, 16, 30))).toBe(30)
   })
 
   it('returns null for invalid syntax', () => {
@@ -82,7 +86,7 @@ describe('minutesUntilClose', () => {
 
 describe('parseOpeningHoursWeek', () => {
   // Anchor on Wednesday 2026-05-06 — week should be Mon 2026-05-04 → Sun 2026-05-10.
-  const anchor = utc(2026, 5, 6, 12)
+  const anchor = zh(2026, 5, 6, 12)
 
   it('returns null for missing hours', () => {
     expect(parseOpeningHoursWeek(null, anchor)).toBe(null)

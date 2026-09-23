@@ -1,5 +1,11 @@
 // Wrapper around the `opening_hours` library. Unknown/invalid input is treated as "open".
+//
+// The library works in the runtime's local time, so every Date going in is
+// converted to a Zürich "wall" Date (toZhWall) and every Date coming out is
+// converted back (fromZhWall). Hours are then right for visitors whose device
+// isn't on Swiss time, and on a server running in UTC.
 import OpeningHours from 'opening_hours'
+import { fromZhWall, toZhWall, zhParts } from './zurich-time'
 
 // Parsing is the expensive part and the map re-evaluates every POI on each
 // time-slider step, so keep one parser per distinct spec string (Zürich has a
@@ -25,7 +31,7 @@ export function isOpenAt(oh: string | null | undefined, t: Date): boolean {
   const parsed = tryParse(oh)
   if (!parsed) return true
   try {
-    return parsed.getState(t)
+    return parsed.getState(toZhWall(t))
   } catch {
     return true
   }
@@ -37,7 +43,7 @@ export function isOpenDuring(oh: string | null | undefined, from: Date, to: Date
   const parsed = tryParse(oh)
   if (!parsed) return true
   try {
-    return parsed.getOpenIntervals(from, to).length > 0
+    return parsed.getOpenIntervals(toZhWall(from), toZhWall(to)).length > 0
   } catch {
     return true
   }
@@ -48,8 +54,8 @@ export function nextStateChange(oh: string | null | undefined, t: Date): Date | 
   const parsed = tryParse(oh)
   if (!parsed) return null
   try {
-    const next = parsed.getNextChange(t)
-    return next ?? null
+    const next = parsed.getNextChange(toZhWall(t))
+    return next ? fromZhWall(next) : null
   } catch {
     return null
   }
@@ -84,22 +90,20 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
 
-function fmtHm(d: Date): string {
+/** "HH:MM" of a wall Date (its local fields already show Zürich time). */
+function fmtWallHm(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
-/** Returns the local-time start-of-Monday for the week containing `anchor`. */
+/** Wall Date for Monday 00:00 (Zürich) of the week containing `anchor`. */
 function startOfWeek(anchor: Date): Date {
-  const d = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 0, 0, 0, 0)
-  // JS getDay(): 0=Sun..6=Sat. Convert to 0=Mon..6=Sun.
-  const dow = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - dow)
-  return d
+  const p = zhParts(anchor)
+  return new Date(p.year, p.month - 1, p.day - p.weekday)
 }
 
 /**
- * Returns a 7-day breakdown (Mon→Sun) for the week containing `anchor`.
- * Uses local time. Returns null if hours can't be parsed.
+ * Returns a 7-day breakdown (Mon→Sun) for the Zürich week containing `anchor`.
+ * Returns null if hours can't be parsed.
  */
 export function parseOpeningHoursWeek(
   oh: string | null | undefined,
@@ -118,7 +122,7 @@ export function parseOpeningHoursWeek(
       const raw = parsed.getOpenIntervals(dayStart, dayEnd) as Array<
         [Date, Date, boolean | undefined, string | undefined]
       >
-      const intervals = raw.map(([from, to]) => ({ from: fmtHm(from), to: fmtHm(to) }))
+      const intervals = raw.map(([from, to]) => ({ from: fmtWallHm(from), to: fmtWallHm(to) }))
       out.push({ dayIndex: i, dayLabel: DAY_LABELS[i]!, intervals })
     }
     return out

@@ -101,3 +101,26 @@ export function bboxOf(
   const dLon = paddingM / (111_000 * Math.cos(toRad(meanLat)))
   return [minLon - dLon, minLat - dLat, maxLon + dLon, maxLat + dLat]
 }
+
+/** Even-odd point-in-polygon test for a ring of [lon, lat] pairs. */
+export function pointInRing(p: LatLon, ring: [number, number][]): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]!
+    const [xj, yj] = ring[j]!
+    if (yi > p.lat !== yj > p.lat && p.lon < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+/** Inside `outer` and not inside any of its `holes` (courtyards). */
+export function pointInPolygonWithHoles(
+  p: LatLon,
+  outer: [number, number][],
+  holes?: [number, number][][] | null,
+): boolean {
+  if (!pointInRing(p, outer)) return false
+  return !(holes ?? []).some((h) => pointInRing(p, h))
+}

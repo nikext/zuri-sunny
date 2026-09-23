@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Sky } from '#/lib/types'
+import { fmtHmZh as fmtHm } from '#/lib/zurich-time'
 
 export type SkyChipProps = {
   sky: Sky | null
@@ -27,14 +28,6 @@ const LEGEND: Record<Sky['state'], string> = {
   partly: 'mix of sun and clouds',
   overcast: 'no sun reaches the ground — all markers grey, scores hidden',
   night: 'after sunset',
-}
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n)
-}
-
-function fmtHm(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 export function SkyChip(props: SkyChipProps): ReactElement | null {

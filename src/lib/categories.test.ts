@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { categoryMatches } from './categories'
 import type { Poi } from './types'
 
-// Wednesday. Tests run with TZ=UTC, so local wall-clock == UTC here.
+// Wednesday 14:00 in Zürich. Meal windows are Zürich wall-clock times.
 const WED = new Date('2026-09-23T12:00:00Z')
 
 const poi = (p: Partial<Poi>): Poi => ({ id: 'x', lat: 47.37, lon: 8.54, ...p })

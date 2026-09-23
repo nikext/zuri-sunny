@@ -54,6 +54,7 @@ export function slimTags(
 export type BuildingRow = {
   id: string
   footprint: [number, number][]
+  holes?: [number, number][][] | null
   heightM: number
   minLat: number
   maxLat: number
@@ -66,6 +67,8 @@ export type BuildingWire = Omit<BuildingRow, 'id'>
 export function slimBuilding(row: BuildingRow): BuildingWire {
   return {
     footprint: roundFootprint(row.footprint),
+    // Only multipolygon buildings have courtyards; omit the key otherwise.
+    ...(row.holes && row.holes.length > 0 ? { holes: row.holes.map(roundFootprint) } : {}),
     heightM: row.heightM,
     minLat: roundCoord(row.minLat),
     maxLat: roundCoord(row.maxLat),
