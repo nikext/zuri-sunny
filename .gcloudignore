@@ -1,0 +1,27 @@
+# Files NOT uploaded by `gcloud run deploy --source .`.
+# Mirrors .gitignore, except that a local data/zurich.db IS uploaded so the
+# image can reuse it when Overpass rate-limits Cloud Build (scripts/seed.ts).
+.gcloudignore
+.git
+.gitignore
+node_modules
+.output
+.nitro
+.tanstack
+.vinxi
+.wrangler
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.claude/
+__unconfig*
+todos.json
+package-lock.json
+*.tsbuildinfo
+.DS_Store
+data/*
+!data/zurich.db
+*.db-shm
+*.db-wal

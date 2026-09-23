@@ -63,6 +63,8 @@ gcloud run deploy zuri-sunny --source . --region europe-west6 --port 3000 \
 
 `--source .` builds the `Dockerfile` with Cloud Build and pushes the image to Artifact Registry. Leave `DB_PATH` unset so the baked database is used.
 
+Overpass often rate-limits Cloud Build's IPs (429/504). If you have a local `./data/zurich.db` (from `pnpm run dev` or `pnpm run seed`), it is uploaded with the source (`.gcloudignore`) and reused by the build; it is only re-fetched when older than 3 days, and a failed re-fetch keeps the bundled data. Without a local database the build fetches everything and fails if Overpass stays down. Checkpoint the WAL first if a dev server has it open: `node -e "new (require('better-sqlite3'))('data/zurich.db').pragma('wal_checkpoint(TRUNCATE)')"`.
+
 ## Deploy to Railway (alternative)
 
 1. Push this repo to GitHub.

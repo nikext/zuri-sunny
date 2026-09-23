@@ -6,8 +6,10 @@ node_modules
 .vite
 .git
 .gitignore
-data
-*.db
+# A local ./data/zurich.db is baked into the image when present (see
+# scripts/seed.ts); its WAL/SHM side files never are — checkpoint first.
+data/*
+!data/zurich.db
 *.db-shm
 *.db-wal
 .env
