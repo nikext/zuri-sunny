@@ -1,13 +1,23 @@
 // Wrapper around the `opening_hours` library. Unknown/invalid input is treated as "open".
 import OpeningHours from 'opening_hours'
 
+// Parsing is the expensive part and the map re-evaluates every POI on each
+// time-slider step, so keep one parser per distinct spec string (Zürich has a
+// few hundred distinct strings).
+const parseCache = new Map<string, OpeningHours | null>()
+
 function tryParse(oh: string | null | undefined): OpeningHours | null {
   if (!oh || oh.trim() === '') return null
+  const cached = parseCache.get(oh)
+  if (cached !== undefined) return cached
+  let parsed: OpeningHours | null
   try {
-    return new OpeningHours(oh, null)
+    parsed = new OpeningHours(oh, null)
   } catch {
-    return null
+    parsed = null
   }
+  parseCache.set(oh, parsed)
+  return parsed
 }
 
 /** True if the POI is open at time `t`. Null/empty/invalid spec → true. */
@@ -16,6 +26,18 @@ export function isOpenAt(oh: string | null | undefined, t: Date): boolean {
   if (!parsed) return true
   try {
     return parsed.getState(t)
+  } catch {
+    return true
+  }
+}
+
+/** True if the POI is open at any point in [from, to). Null/empty/invalid
+ *  spec → true, matching `isOpenAt`. */
+export function isOpenDuring(oh: string | null | undefined, from: Date, to: Date): boolean {
+  const parsed = tryParse(oh)
+  if (!parsed) return true
+  try {
+    return parsed.getOpenIntervals(from, to).length > 0
   } catch {
     return true
   }

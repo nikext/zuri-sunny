@@ -90,7 +90,7 @@ describe('slimBuilding', () => {
 })
 
 describe('slimPoi', () => {
-  it('drops cuisine + fetchedAt, prunes tags to the bulk whitelist', () => {
+  it('drops fetchedAt, keeps cuisine, prunes tags to the bulk whitelist', () => {
     const wire = slimPoi({
       id: 'node/73653071',
       name: 'moana',
@@ -114,6 +114,7 @@ describe('slimPoi', () => {
       id: 'node/73653071',
       name: 'moana',
       amenity: 'cafe',
+      cuisine: 'coffee_shop',
       lat: 47.3439521,
       lon: 8.5297852,
       openingHours: 'Mo-Fr 08:00-22:00',
@@ -123,7 +124,6 @@ describe('slimPoi', () => {
         outdoor_seating: 'yes',
       },
     })
-    expect(wire).not.toHaveProperty('cuisine')
     expect(wire).not.toHaveProperty('fetchedAt')
   })
 
@@ -143,6 +143,7 @@ describe('slimPoi', () => {
       id: 'node/1',
       name: null,
       amenity: 'bar',
+      cuisine: null,
       lat: 47.0,
       lon: 8.5,
       openingHours: null,

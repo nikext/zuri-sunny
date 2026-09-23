@@ -4,6 +4,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { setResponseHeader } from '@tanstack/react-start/server'
 import { slimBuilding, slimPoi, type BuildingRow, type PoiRow } from './projections'
+import { tileBbox, type TileId } from '#/lib/tiles'
 
 type Bbox = [number, number, number, number]
 
@@ -61,6 +62,38 @@ export const getBuildingsInBbox = createServerFn({ method: 'GET' })
           lte(buildings.minLon, east),
           gte(buildings.maxLat, south),
           lte(buildings.minLat, north),
+        ),
+      )
+    setResponseHeader('cache-control', BBOX_CACHE_CONTROL)
+    return (rows as BuildingRow[]).map(slimBuilding)
+  })
+
+/** Buildings served by one tile of the fixed grid in `#/lib/tiles`: those whose
+ *  bbox's south-west corner lies in the tile, so each building is sent once
+ *  no matter how many tiles the client loads. */
+export const getBuildingTile = createServerFn({ method: 'GET' })
+  .inputValidator((d: TileId): TileId => {
+    if (!d || !Number.isInteger(d.x) || !Number.isInteger(d.y)) {
+      throw new Error('Invalid tile: expected integer { x, y }')
+    }
+    return { x: d.x, y: d.y }
+  })
+  .handler(async ({ data }) => {
+    const { ensureServerStarted } = await import('./init')
+    const { db } = await import('./db/client')
+    const { buildings } = await import('./db/schema')
+    const { and, gte, lt } = await import('drizzle-orm')
+    ensureServerStarted()
+    const [west, south, east, north] = tileBbox(data)
+    const rows = await db
+      .select()
+      .from(buildings)
+      .where(
+        and(
+          gte(buildings.minLat, south),
+          lt(buildings.minLat, north),
+          gte(buildings.minLon, west),
+          lt(buildings.minLon, east),
         ),
       )
     setResponseHeader('cache-control', BBOX_CACHE_CONTROL)

@@ -1,7 +1,7 @@
 // Wire-format projections for the bulk bbox endpoints.
 //
 // Why: the raw DB rows carry fields the client never reads, full OSM tag blobs,
-// and 7-decimal coordinates — all paid as Railway egress on every pan/zoom.
+// and 7-decimal coordinates — all paid as egress on every pan/zoom.
 // These helpers slim each row to the minimum the client actually consumes
 // before serialization. `getPoiById` keeps the full row (rare, single-document)
 // so the detail page still has every tag.
@@ -92,6 +92,8 @@ export type PoiWire = {
   lon: number
   name: string | null
   amenity: string
+  /** Kept for the Breakfast chip (cuisine=breakfast/brunch); a short string. */
+  cuisine: string | null
   openingHours: string | null
   tags: Record<string, string> | null
 }
@@ -103,6 +105,7 @@ export function slimPoi(row: PoiRow): PoiWire {
     lon: row.lon,
     name: row.name,
     amenity: row.amenity,
+    cuisine: row.cuisine,
     openingHours: row.openingHours,
     tags: slimTags(row.tags),
   }

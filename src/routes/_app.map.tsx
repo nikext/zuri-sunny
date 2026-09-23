@@ -22,8 +22,19 @@ function Home() {
   const navigate = useNavigate({ from: Route.fullPath })
   const search = Route.useSearch()
   const outdoor = search.outdoor ?? false
-  const { filteredPois, buildings, buildingsLoaded, selectedId, setSelectedId, t, setT, cat, sky, rating } =
-    useMapData()
+  const {
+    filteredPois,
+    buildings,
+    buildingsLoaded,
+    zoomedOutTooFar,
+    selectedId,
+    setSelectedId,
+    t,
+    setT,
+    cat,
+    sky,
+    rating,
+  } = useMapData()
 
   // Sync `t` to URL with a small debounce so dragging doesn't spam history.
   const tWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,10 +109,18 @@ function Home() {
         </div>
       </div>
 
-      <div className="absolute top-14 left-2 z-20 pointer-events-none sm:top-16 sm:left-3">
+      <div className="absolute top-14 left-2 z-20 pointer-events-none sm:top-16 sm:left-3 flex flex-col items-start gap-1.5">
         <div className="pointer-events-auto">
           <SkyChip sky={sky} sunrise={chipSunrise} sunset={chipSunset} />
         </div>
+        {zoomedOutTooFar ? (
+          <p
+            role="status"
+            className="rounded-full bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-white shadow-sm"
+          >
+            Zoom in to see sun and shade
+          </p>
+        ) : null}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 z-20 p-2 sm:p-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pointer-events-none">

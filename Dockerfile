@@ -28,6 +28,10 @@ RUN pnpm run seed
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Opening hours, "open now" and the time labels are evaluated in the process's
+# local timezone. Cloud Run defaults to UTC, which made server-rendered pages
+# disagree with the browser by 1–2 hours.
+ENV TZ=Europe/Zurich
 # Bump max HTTP header size (default 16KB). Railway's edge appends many
 # proxy/security headers; any internal self-fetch through the proxy can
 # exceed undici's default cap and surface as UND_ERR_HEADERS_OVERFLOW.

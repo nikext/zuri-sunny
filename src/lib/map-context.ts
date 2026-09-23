@@ -14,6 +14,12 @@ export type MapData = {
   sunny: Record<string, boolean>
   /** POI id -> 0..99 geometric daily exposure for the current day. */
   rating: Record<string, number>
+  /** POI id -> [lon, lat] where sun is evaluated, for POIs moved outside their
+   *  building footprint (see `sunAnchor`). */
+  anchors: Record<string, [number, number]>
+  /** True when the viewport is too large to load buildings for; sun/shade is
+   *  unknown until the user zooms in. */
+  zoomedOutTooFar: boolean
   /** Current sky state for the city, or null when unavailable / past horizon. */
   sky: Sky | null
   openNow: Record<string, boolean>

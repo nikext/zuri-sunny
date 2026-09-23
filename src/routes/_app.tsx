@@ -5,10 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { SunMap } from '#/components/SunMap'
 import { useSunStatus } from '#/lib/use-sun-status'
+import { useBuildingTiles } from '#/lib/use-building-tiles'
+import { categoryMatches } from '#/lib/categories'
 import { isOpenAt } from '#/lib/opening-hours'
-import { getPoisInBbox, getBuildingsInBbox, getSkyAt } from '#/server/functions'
+import { getPoisInBbox, getSkyAt } from '#/server/functions'
 import { MapDataProvider, type MapData } from '#/lib/map-context'
-import type { Building, Category, Poi, Sky } from '#/lib/types'
+import type { Category, Poi, Sky } from '#/lib/types'
 
 type AppSearch = {
   t?: string
@@ -66,20 +68,6 @@ function parseT(s: string | undefined): Date {
   return Number.isNaN(d.getTime()) ? new Date() : d
 }
 
-function categoryMatches(poi: Poi, cat: Category): boolean {
-  if (cat === 'all') return true
-  const a = poi.amenity ?? ''
-  switch (cat) {
-    case 'breakfast':
-    case 'coffee':
-      return a === 'cafe' || a === 'ice_cream'
-    case 'lunch':
-      return a === 'restaurant'
-    case 'apero':
-      return a === 'bar' || a === 'pub' || a === 'biergarten' || a === 'restaurant'
-  }
-}
-
 function AppLayout() {
   const search = Route.useSearch()
   const { initialPois } = Route.useLoaderData()
@@ -89,13 +77,11 @@ function AppLayout() {
   const outdoor: boolean = search.outdoor ?? false
 
   const [pois, setPois] = useState<Poi[]>(initialPois)
-  const [buildings, setBuildings] = useState<Building[]>([])
-  // Distinguishes "buildings haven't loaded yet" (initial state) from "buildings
-  // loaded, none in this bbox" (legitimately all-sunny). Without this gate, the
-  // first compute runs against an empty index and paints every POI as sunny.
-  const [buildingsLoaded, setBuildingsLoaded] = useState<boolean>(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [bbox, setBbox] = useState<[number, number, number, number]>(DEFAULT_BBOX)
+  // DEFAULT_BBOX is the whole city — fine for the POI loader, far too much for
+  // buildings. Wait for the map to report its real viewport before loading any.
+  const [viewportKnown, setViewportKnown] = useState<boolean>(false)
 
   // The loader already seeded POIs for the initial bbox; skip the redundant
   // first client-side fetch. Subsequent bbox changes (pan/zoom) refetch.
@@ -120,32 +106,27 @@ function AppLayout() {
   }, [bbox])
 
   // Buildings load independently so they don't gate POI render. Markers paint
-  // immediately from the loader; sun/shade colors light up once buildings
-  // arrive and the worker computes.
-  useEffect(() => {
-    let cancelled = false
-    getBuildingsInBbox({ data: { bbox } })
-      .then((rows) => {
-        if (!cancelled) {
-          setBuildings(rows as unknown as Building[])
-          setBuildingsLoaded(true)
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) console.error('buildings fetch failed', err)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [bbox])
+  // immediately from the loader; sun/shade colors light up once the viewport's
+  // building tiles arrive and the worker computes.
+  const {
+    buildings,
+    ready: buildingsLoaded,
+    tooWide: zoomedOutTooFar,
+  } = useBuildingTiles(viewportKnown ? bbox : null)
 
+  // Meal chips depend on the calendar day (opening hours), not the minute, so
+  // scrubbing the slider within a day doesn't refilter.
+  const dayKey = `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`
   const filteredPois = useMemo(() => {
-    let result = pois.filter((p) => categoryMatches(p, cat))
+    let result = pois.filter((p) => categoryMatches(p, cat, t))
     if (outdoor) result = result.filter(hasOutdoorSeating)
     return result
-  }, [pois, cat, outdoor])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pois, cat, outdoor, dayKey])
 
-  const { sunny, rating } = useSunStatus({
+  // Only compute while the building set covers the viewport: against a
+  // partial set, POIs in the missing area would read as sunny.
+  const { sunny, rating, anchors } = useSunStatus({
     pois: filteredPois,
     buildings,
     t,
@@ -179,6 +160,7 @@ function AppLayout() {
   }, [filteredPois, t])
 
   const handleViewport = useCallback((next: [number, number, number, number]) => {
+    setViewportKnown(true)
     setBbox((prev) => {
       const dx = Math.abs(next[0] - prev[0]) + Math.abs(next[2] - prev[2])
       const dy = Math.abs(next[1] - prev[1]) + Math.abs(next[3] - prev[3])
@@ -195,6 +177,8 @@ function AppLayout() {
       filteredPois,
       sunny,
       rating,
+      anchors,
+      zoomedOutTooFar,
       sky,
       openNow,
       selectedId,
@@ -203,7 +187,21 @@ function AppLayout() {
       setT,
       cat,
     }),
-    [pois, buildings, buildingsLoaded, filteredPois, sunny, rating, sky, openNow, selectedId, t, cat],
+    [
+      pois,
+      buildings,
+      buildingsLoaded,
+      filteredPois,
+      sunny,
+      rating,
+      anchors,
+      zoomedOutTooFar,
+      sky,
+      openNow,
+      selectedId,
+      t,
+      cat,
+    ],
   )
 
   return (
@@ -215,7 +213,9 @@ function AppLayout() {
             buildings={buildings}
             sunny={sunny}
             rating={rating}
+            anchors={anchors}
             sky={sky}
+            t={t}
             openNow={openNow}
             selectedId={selectedId}
             onSelect={setSelectedId}

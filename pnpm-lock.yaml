@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@deck.gl/core':
+        specifier: 9.3.2
+        version: 9.3.2
       '@deck.gl/layers':
         specifier: ^9.3.2
         version: 9.3.2(@deck.gl/core@9.3.2)(@loaders.gl/core@4.4.1)(@luma.gl/core@9.3.3)(@luma.gl/engine@9.3.3(@luma.gl/core@9.3.3)(@luma.gl/shadertools@9.3.3(@luma.gl/core@9.3.3)))
@@ -7510,7 +7513,7 @@ snapshots:
   h3@2.0.1-rc.20(crossws@0.4.5(srvx@0.11.15)):
     dependencies:
       rou3: 0.8.1
-      srvx: 0.11.15
+      srvx: 0.11.22
     optionalDependencies:
       crossws: 0.4.5(srvx@0.11.15)
 

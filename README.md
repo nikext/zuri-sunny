@@ -42,8 +42,11 @@ Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites 
 
 ## Architecture
 
-- **Server (TanStack Start + Nitro):** server functions in `src/server/functions.ts` for `getPoisInBbox`, `getBuildingsInBbox`, `getPoiById`, `refreshData`. SQLite lives at `process.env.DB_PATH ?? ./data/zurich.db`. Seed and weekly refresh loop bootstrap on first server-function call (`src/server/init.ts`).
-- **Client:** the home route fetches viewport-bounded POIs + buildings, hands them to a Web Worker (`src/workers/shadow-worker.ts`) along with the current time. The worker raycasts each POI toward the sun bearing through an rbush index of building footprints and reports back a `{ id → sunny? }` map. Marker colors update in real time as the user drags the slider.
+- **Server (TanStack Start + Nitro):** server functions in `src/server/functions.ts` for `getPoisInBbox`, `getBuildingTile`, `getBuildingsInBbox`, `getPoiById`, `getSkyAt`, `refreshData`. SQLite lives at `process.env.DB_PATH ?? ./data/zurich.db`. Seed and weekly refresh loop bootstrap on first server-function call (`src/server/init.ts`).
+- **Client:** the home route fetches viewport-bounded POIs, and buildings in fixed ~1.1 km grid tiles (`src/lib/tiles.ts`, `src/lib/use-building-tiles.ts`) covering the viewport plus 300 m, since shadows come from outside it. Tiles are cached, so panning only fetches new ones; past 64 tiles the map asks the user to zoom in. Both go to a Web Worker (`src/workers/shadow-worker.ts`) along with the current time. The worker raycasts each POI toward the sun bearing through an rbush index of building footprints and reports back a `{ id → sunny? }` map. Marker colors update in real time as the user drags the slider.
+- **Where sun is measured:** ~95% of POIs are mapped as a point inside their own building, where a ray always hits the building's own wall. `sunAnchor` (`src/lib/shadows.ts`) moves such a POI to 2.5 m outside the nearest facade that faces open space (not a party wall) — roughly where the terrace is — and markers are drawn there.
+- **3D map:** deck.gl over MapLibre, tilted by default (2D/3D toggle and a compass with the sun's direction on the right). Buildings are lit by a `_SunLight` at the slider time and cast real shadows onto a transparent ground layer, so the shadows move as you scrub; overcast skies and night switch to soft, shadowless light.
+- **Categories:** Breakfast / Lunch / Apéro also require the place to be open during that meal's window on the selected day (`src/lib/categories.ts`).
 - **URL state:** `?t=<ISO>` and `?cat=<category>` round-trip through TanStack Router search params for shareable links.
 
 ## Deploy to Google Cloud Run

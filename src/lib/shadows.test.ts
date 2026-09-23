@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { buildSpatialIndex, isSunnyAt } from './shadows'
+import { buildSpatialIndex, isSunnyAt, sunAnchor } from './shadows'
+import { haversine } from './geo'
 import type { Building, Poi } from './types'
 
 const POI: Poi = { id: 'p1', lat: 47.3769, lon: 8.5417 }
@@ -70,5 +71,71 @@ describe('isSunnyAt', () => {
     const shortWall = southWall(POI, 10, 20, 2, 1)
     const idx = buildSpatialIndex([shortWall])
     expect(isSunnyAt(POI, idx, [shortWall], NOON)).toBe(true)
+  })
+})
+
+/** Axis-aligned box given in metres relative to `poi` (x = east, y = north). */
+function box(
+  poi: Poi,
+  m: { west: number; east: number; south: number; north: number },
+  heightM: number,
+  id: string,
+): Building {
+  const mPerDegLon = M_PER_DEG_LAT * Math.cos((poi.lat * Math.PI) / 180)
+  const west = poi.lon + m.west / mPerDegLon
+  const east = poi.lon + m.east / mPerDegLon
+  const south = poi.lat + m.south / M_PER_DEG_LAT
+  const north = poi.lat + m.north / M_PER_DEG_LAT
+  return {
+    id,
+    footprint: [
+      [west, south],
+      [east, south],
+      [east, north],
+      [west, north],
+      [west, south],
+    ],
+    heightM,
+    minLat: south,
+    maxLat: north,
+    minLon: west,
+    maxLon: east,
+  }
+}
+
+describe('sunAnchor / POIs mapped inside their building', () => {
+  it('leaves a POI outside every footprint where it is', () => {
+    const wall = southWall(POI, 10, 20, 2, 50)
+    const idx = buildSpatialIndex([wall])
+    expect(sunAnchor(POI, idx)).toEqual({ lat: POI.lat, lon: POI.lon })
+  })
+
+  it('samples outside the nearest facade — a south-facing terrace gets the noon sun', () => {
+    // POI 3 m inside the south facade of a 15 m building. Raycasting from the
+    // POI itself hits that facade 3 m away and reads as shaded.
+    const host = box(POI, { west: -10, east: 10, south: -3, north: 17 }, 15, 'host')
+    const idx = buildSpatialIndex([host])
+    const anchor = sunAnchor(POI, idx)
+    expect(anchor.lat).toBeLessThan(host.minLat)
+    expect(haversine(POI, anchor)).toBeCloseTo(5.5, 0)
+    expect(isSunnyAt(POI, idx, [host], NOON)).toBe(true)
+  })
+
+  it('keeps the host building as a shadow caster — a north-facing terrace stays shaded at noon', () => {
+    const host = box(POI, { west: -10, east: 10, south: -17, north: 3 }, 15, 'host')
+    const idx = buildSpatialIndex([host])
+    expect(sunAnchor(POI, idx).lat).toBeGreaterThan(host.maxLat)
+    expect(isSunnyAt(POI, idx, [host], NOON)).toBe(false)
+  })
+
+  it('skips a facade that is a party wall with the neighbouring building', () => {
+    // Nearest facade (south, 3 m) is shared with a neighbour, so the next
+    // nearest open facade (east or west, 10 m) is used instead.
+    const host = box(POI, { west: -10, east: 10, south: -3, north: 17 }, 15, 'host')
+    const neighbour = box(POI, { west: -10, east: 10, south: -20, north: -3 }, 15, 'nb')
+    const idx = buildSpatialIndex([host, neighbour])
+    const anchor = sunAnchor(POI, idx)
+    expect(haversine(POI, anchor)).toBeCloseTo(12.5, 0)
+    expect(anchor.lat).toBeGreaterThan(neighbour.maxLat)
   })
 })

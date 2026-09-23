@@ -51,7 +51,13 @@ export type WorkerInbound =
   | WorkerScoreDailyMessage
 
 export type WorkerReadyMessage = { type: 'ready' }
-export type WorkerResultMessage = { type: 'result'; sunny: Record<string, boolean> }
+export type WorkerResultMessage = {
+  type: 'result'
+  sunny: Record<string, boolean>
+  /** POI id -> [lon, lat] where sun was evaluated, for POIs moved out of their
+   *  building footprint (see `sunAnchor`). POIs not listed are unmoved. */
+  anchors: Record<string, [number, number]>
+}
 export type WorkerRatingMessage = {
   type: 'rating'
   /** POI id -> 0..99 integer (geometric daily exposure, clear-sky). */
@@ -69,8 +75,13 @@ export type Category = 'breakfast' | 'coffee' | 'lunch' | 'apero' | 'all'
 export type Sky = {
   state: 'clear' | 'partly' | 'overcast' | 'night'
   cloudCoverPct: number
-  directRadiationWm2: number
+  /** Measured direct normal irradiance (W/m²), mean over the sampled hour. */
+  dniWm2: number
+  /** Measured ÷ clear-sky DNI for the same hour: ~1 = cloudless, ~0 = no
+   *  direct sun. Null when the sun was up too briefly in that hour to say. */
+  clearSkyIndex: number | null
   sunAltitudeRad: number
-  /** ISO of the hour we sampled (snapped down to the hour). */
+  /** ISO of the end of the hour we sampled (Open-Meteo stamps each hourly
+   *  mean with the hour it ends on). */
   at: string
 }

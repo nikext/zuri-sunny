@@ -86,7 +86,15 @@ export function SkyChip(props: SkyChipProps): ReactElement | null {
             <dt className="text-slate-500">Cloud cover</dt>
             <dd className="text-right tabular-nums">{Math.round(sky.cloudCoverPct)}%</dd>
             <dt className="text-slate-500">Direct sun</dt>
-            <dd className="text-right tabular-nums">{Math.round(sky.directRadiationWm2)} W/m²</dd>
+            <dd className="text-right tabular-nums">{Math.round(sky.dniWm2)} W/m²</dd>
+            {sky.clearSkyIndex !== null ? (
+              <>
+                <dt className="text-slate-500">vs. clear sky</dt>
+                <dd className="text-right tabular-nums">
+                  {Math.min(100, Math.round(sky.clearSkyIndex * 100))}%
+                </dd>
+              </>
+            ) : null}
             {sunrise instanceof Date && !Number.isNaN(sunrise.getTime()) ? (
               <>
                 <dt className="text-slate-500">Sunrise</dt>
@@ -116,7 +124,7 @@ export function SkyChip(props: SkyChipProps): ReactElement | null {
             </ul>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100">
-            <div className="text-slate-500 mb-1">Marker colors (right now)</div>
+            <div className="text-slate-500 mb-1">Marker colors (at the selected time)</div>
             <ul className="space-y-0.5 text-[11px] leading-snug text-slate-600">
               <li className="flex items-center gap-1.5">
                 <span
@@ -134,7 +142,7 @@ export function SkyChip(props: SkyChipProps): ReactElement | null {
                 />
                 <span><span className="text-slate-800 font-medium">Grey</span> — in shade</span>
               </li>
-              <li className="text-slate-500">Faded = closed right now</li>
+              <li className="text-slate-500">Faded = closed at that time</li>
             </ul>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100">

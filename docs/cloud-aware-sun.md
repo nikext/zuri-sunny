@@ -8,7 +8,7 @@ Three user-visible additions to the home map:
 
 1. **Sky chip (top-right)** — a single city-wide indicator of current conditions:
    - ☀️ Clear · ⛅ Partly cloudy · ☁️ Overcast · ⏾ Night
-   - Tap → popover with cloud %, direct radiation (W/m²), today's sunrise/sunset.
+   - Tap → popover with cloud %, direct normal irradiance (W/m²) and its share of a clear sky, today's sunrise/sunset.
    - Hidden silently when the upstream forecast is unavailable.
 2. **Per-spot sun rating** — a 0–99 number drawn inside each marker:
    - "% of (today's open hours ∩ daylight hours) the spot is geometrically sunny under clear skies".
@@ -23,7 +23,7 @@ The PoiSheet bottom sheet and the `/spot/$id` detail page each gained a one-para
 ```
    ┌────────────────────────────────────────────────────────┐
    │ Open-Meteo /v1/forecast (free, no API key)             │
-   │   timezone=Europe/Zurich, hourly: cloud_cover + direct │
+   │   timezone=Europe/Zurich, hourly: cloud_cover + DNI    │
    └─────────────────────────┬──────────────────────────────┘
                              │ server-side fetch
                              ▼
@@ -73,7 +73,9 @@ The PoiSheet bottom sheet and the `/spot/$id` detail page each gained a one-para
 
 ### New
 - `src/server/weather.ts` — Open-Meteo fetch + 30-min cache. DST-safe ZH→UTC conversion via `Intl.DateTimeFormat`. Returns `null` on any failure (fetch error, non-200, malformed body, out-of-window).
-- `src/lib/sky.ts` — pure `classifySky({ cloudCoverPct, directRadiationWm2, sunAltitudeRad })` returning `'clear' | 'partly' | 'overcast' | 'night'`. Thresholds pinned by tests.
+- `src/lib/sky.ts` — pure `classifySky({ sunAltitudeRad, dniWm2, clearSkyDniWm2, cloudCoverPct })` returning `'clear' | 'partly' | 'overcast' | 'night'`, plus `clearSkyDni(altitude)` (Meinel model). Classifies on the clear-sky index (measured ÷ clear-sky DNI) so a low or winter sun under a clear sky still reads as clear. Thresholds pinned by tests.
+
+  History: this used to threshold horizontal `direct_radiation` at 80/350 W/m² and snapped the time *down* to the hour. Open-Meteo stamps each hourly mean with the hour it *ends* on, and horizontal radiation shrinks with sun angle, so a cloudless morning read as "overcast" until ~10:00 and a clear winter noon never reached "clear".
 - `src/lib/score.ts` — pure `dailyRating(poi, index, buildings, day): number`. Computes the rating window (open hours ∩ daylight, fall back to daylight), sums sunny-segment overlap, returns `0..99`.
 - `src/components/SkyChip.tsx` — DOM chip + popover with click-away + Esc-to-close. Renders nothing when `sky === null`.
 - Tests: `sky.test.ts` (5), `score.test.ts` (5), `weather.test.ts` (6).
@@ -94,8 +96,9 @@ The PoiSheet bottom sheet and the `/spot/$id` detail page each gained a one-para
 
 | Constant | File | Default | Effect |
 |---|---|---|---|
-| `directRadiationWm2 < 80` → overcast | `src/lib/sky.ts` | 80 W/m² | Lower = stricter "overcast" trigger |
-| `directRadiationWm2 < 350` → partly | `src/lib/sky.ts` | 350 W/m² | Boundary between partly cloudy and clear |
+| clear-sky index `< 0.2` → overcast | `src/lib/sky.ts` | 0.2 | Lower = stricter "overcast" trigger |
+| clear-sky index `< 0.6` → partly | `src/lib/sky.ts` | 0.6 | Boundary between partly cloudy and clear |
+| `MIN_CLEAR_SKY_DNI_WM2` | `src/lib/sky.ts` | 150 W/m² | Below this hourly clear-sky DNI (sunrise/sunset hours) classify by cloud cover instead |
 | `TTL_MS` | `src/server/weather.ts` | 30 min | How long the Open-Meteo response is cached |
 | `cache-control` on `getSkyAt` | `src/server/functions.ts` | `max-age=300, swr=1800` | Browser cache lifetime |
 | `RATING_HARD_HIDE_ZOOM` | `src/components/SunMap.tsx` | 13 | Below this zoom, all labels hidden |
@@ -138,7 +141,7 @@ pnpm run dev             # http://localhost:3000
 Manual smoke (with network ENABLED for `api.open-meteo.com`):
 1. Page loads, dots appear within ~1 s.
 2. ~250 ms after first paint, the sky chip appears top-right.
-3. Tap the chip → popover with cloud %, direct W/m², sunrise/sunset.
+3. Tap the chip → popover with cloud %, direct W/m², % of clear sky, sunrise/sunset.
 4. Zoom to 14+ → numbers fade in inside markers; dense clusters drop their labels.
 5. Pan into a sparser area → more numbers survive.
 6. Drag the time slider → marker colours update; numbers do NOT (rating is a daily property).
@@ -171,6 +174,6 @@ In the browser:
 Pure-function suites (run in node env):
 - `src/lib/sky.test.ts` — threshold table, including the "night flag wins over high radiation" defensive case.
 - `src/lib/score.test.ts` — open-plaza max rating, fully-shadowed minimum, opening-hours window scoping, daylight fallback for night-only hours, unparseable hours fallback.
-- `src/server/weather.test.ts` — hour snap, cache hit/miss, out-of-window null, fetch-throws null, non-200 null, classification via sun altitude.
+- `src/server/weather.test.ts` — preceding-hour sample selection, cache hit/miss, out-of-window null, fetch-throws null, non-200 null, classification via sun altitude, clear-morning regression.
 
 Worker glue is verified by manual smoke; the heavy lifting (`dailyRating`) is tested directly without the worker boundary.

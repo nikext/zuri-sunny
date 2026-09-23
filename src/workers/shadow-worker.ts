@@ -4,7 +4,7 @@ import type {
   WorkerInbound,
   WorkerOutbound,
 } from '../lib/types'
-import { buildSpatialIndex, isSunnyAt, type BuildingIndex } from '../lib/shadows'
+import { buildSpatialIndex, isSunnyAt, sunAnchor, type BuildingIndex } from '../lib/shadows'
 import { dailyRating } from '../lib/score'
 
 let index: BuildingIndex | null = null
@@ -36,15 +36,18 @@ ctx.addEventListener('message', (e: MessageEvent<WorkerInbound>) => {
   }
   if (msg.type === 'compute') {
     if (!index) {
-      post({ type: 'result', sunny: {} })
+      post({ type: 'result', sunny: {}, anchors: {} })
       return
     }
     const t = new Date(msg.t)
     const sunny: Record<string, boolean> = {}
+    const anchors: Record<string, [number, number]> = {}
     for (const poi of msg.pois) {
       sunny[poi.id] = isSunnyAt(poi, index, buildings, t)
+      const a = sunAnchor(poi, index)
+      if (a.lat !== poi.lat || a.lon !== poi.lon) anchors[poi.id] = [a.lon, a.lat]
     }
-    post({ type: 'result', sunny })
+    post({ type: 'result', sunny, anchors })
     return
   }
   if (msg.type === 'score-daily') {

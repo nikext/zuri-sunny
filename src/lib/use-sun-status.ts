@@ -21,6 +21,10 @@ export type UseSunStatusResult = {
   /** POI id -> 0..99 daily exposure rating. Empty until the worker emits the
    *  first 'rating' message for the current day + POI set. */
   rating: Record<string, number>
+  /** POI id -> [lon, lat] where sun is evaluated, for POIs moved outside their
+   *  building footprint. Markers are drawn here so they sit where the sun is
+   *  measured. */
+  anchors: Record<string, [number, number]>
   loading: boolean
 }
 
@@ -40,7 +44,11 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
 
   const [sunny, setSunny] = useState<Record<string, boolean>>({})
   const [rating, setRating] = useState<Record<string, number>>({})
+  const [anchors, setAnchors] = useState<Record<string, [number, number]>>({})
   const [loading, setLoading] = useState<boolean>(true)
+  // Bumped each time a new building set is posted to the worker, so daily
+  // ratings are re-requested against the new index.
+  const [indexVersion, setIndexVersion] = useState<number>(0)
 
   const workerRef = useRef<Worker | null>(null)
   const seqRef = useRef<number>(0)
@@ -82,6 +90,7 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
         const resultSeq = resultsReceivedRef.current
         if (resultSeq === latestDispatchedSeqRef.current) {
           setSunny(msg.sunny)
+          setAnchors(msg.anchors)
         }
         setLoading(false)
         return
@@ -136,6 +145,7 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     setRating({})
     const initMsg: WorkerInbound = { type: 'init', buildings }
     w.postMessage(initMsg)
+    setIndexVersion((v) => v + 1)
   }, [buildings, enabled])
 
   useEffect(() => {
@@ -160,14 +170,18 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pois, pois.length, t, debounceMs, enabled])
 
-  // Re-dispatch score-daily only when the calendar day (in Zürich) or the POI
-  // set changes — scrubbing within a day reuses the worker's per-day cache.
+  // Re-dispatch score-daily only when the calendar day (in Zürich), the POI
+  // set, or the building index changes — scrubbing within a day reuses the
+  // worker's per-day cache. No need to wait for an in-flight 'init': the
+  // worker handles messages in order, so this runs against the new index.
+  // (Waiting here used to drop the request, and nothing re-sent it once the
+  // worker was ready, so rating numbers went missing after a pan.)
   const dayKey = useMemo(() => zhDayKey(t), [t])
   useEffect(() => {
     if (!enabled) return
     const w = workerRef.current
     if (!w) return
-    if (initInFlightRef.current) return
+    if (indexVersion === 0) return
     if (pois.length === 0) return
     const msg: WorkerInbound = {
       type: 'score-daily',
@@ -176,7 +190,7 @@ export function useSunStatus(input: UseSunStatusInput): UseSunStatusResult {
     }
     w.postMessage(msg)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pois, pois.length, dayKey, enabled, lastBuildingsLenRef.current])
+  }, [pois, pois.length, dayKey, enabled, indexVersion])
 
-  return { sunny, rating, loading }
+  return { sunny, rating, anchors, loading }
 }
