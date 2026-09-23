@@ -1,10 +1,10 @@
 # Zürich Sunny Spots
 
-Explore at: zuri-sunny-production.up.railway.app
+Explore at: [zuri-sunny-286937397059.europe-west6.run.app](https://zuri-sunny-286937397059.europe-west6.run.app)
 
 A web app that shows which Zürich cafés, bars, and restaurants with outdoor seating are currently in the sun — or will be at a chosen time. POIs and building footprints come from OpenStreetMap; sun position from SunCalc; shadow occlusion is raycast in a Web Worker on the client.
 
-Built with TanStack Start (Vite + Nitro), Drizzle + better-sqlite3, MapLibre GL + deck.gl. Deploys to Railway as a single Node process with a persistent SQLite volume.
+Built with TanStack Start (Vite + Nitro), Drizzle + better-sqlite3, MapLibre GL + deck.gl. Deploys to Google Cloud Run as a single Node container with the SQLite data baked into the image.
 
 ## Screenshots
 
@@ -46,7 +46,19 @@ Vitest runs the geo / sun / shadow / Overpass / opening-hours / timeline suites 
 - **Client:** the home route fetches viewport-bounded POIs + buildings, hands them to a Web Worker (`src/workers/shadow-worker.ts`) along with the current time. The worker raycasts each POI toward the sun bearing through an rbush index of building footprints and reports back a `{ id → sunny? }` map. Marker colors update in real time as the user drags the slider.
 - **URL state:** `?t=<ISO>` and `?cat=<category>` round-trip through TanStack Router search params for shareable links.
 
-## Deploy to Railway
+## Deploy to Google Cloud Run
+
+Production runs on Cloud Run (`europe-west6`, Zürich). The `Dockerfile` builds the app and then runs `pnpm run seed` (`scripts/seed.ts`), which fetches Zürich's POIs and buildings from Overpass (with retries) and bakes them into `./data/zurich.db` inside the image. Cloud Run instances have no persistent disk, so this lets every cold start serve data immediately; the runtime staleness check in `src/server/init.ts` still refreshes it in the background, and every redeploy picks up fresh data.
+
+```bash
+gcloud run deploy zuri-sunny --source . --region europe-west6 --port 3000 \
+  --memory 1Gi --cpu 1 --min-instances 0 --max-instances 1 --cpu-boost \
+  --allow-unauthenticated
+```
+
+`--source .` builds the `Dockerfile` with Cloud Build and pushes the image to Artifact Registry. Leave `DB_PATH` unset so the baked database is used.
+
+## Deploy to Railway (alternative)
 
 1. Push this repo to GitHub.
 2. [https://railway.com/new](https://railway.com/new) → "Deploy from GitHub repo" → pick this repo. Railway detects `nixpacks.toml` and builds with `pnpm install --frozen-lockfile && pnpm run build` on Node 24.

@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "seed": "tsx scripts/seed.ts",
     "start": "node --max-http-header-size=65536 .output/server/index.mjs"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
     "jsdom": "^28.1.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.5"

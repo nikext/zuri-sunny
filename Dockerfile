@@ -1,5 +1,5 @@
 # Single-stage Node 24 image. Builder + runtime in one — keeps things simple
-# and the final image is fine for Railway.
+# and the final image is fine for Railway and Cloud Run.
 FROM node:24-slim
 
 WORKDIR /app
@@ -20,6 +20,11 @@ RUN pnpm install --frozen-lockfile
 # Copy source and build.
 COPY . .
 RUN pnpm run build
+
+# Bake the OSM data into ./data/zurich.db so containers start with data rather
+# than seeding from Overpass on first request (Cloud Run instances have no
+# persistent disk, so every cold start would otherwise re-seed).
+RUN pnpm run seed
 
 ENV NODE_ENV=production
 ENV PORT=3000
